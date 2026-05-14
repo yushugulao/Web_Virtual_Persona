@@ -11,11 +11,13 @@ import argparse
 import json
 import os
 import platform
+import queue
 import re
 import shlex
 import shutil
 import subprocess
 import tarfile
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -835,36 +837,80 @@ def installed_ollama_models() -> set[str]:
 
 
 def run_ollama_stream(args: list[str], dry_run: bool) -> dict[str, Any]:
+    print("$ " + " ".join(shlex.quote(str(part)) for part in args))
     if dry_run:
-        print("$ " + " ".join(args))
         return {"ok": True, "dry_run": True, "tail": []}
+    stall_timeout_seconds = int(os.getenv("PERSONA_RAG_MODEL_PULL_STALL_TIMEOUT_SECONDS", "240"))
+    timeout_seconds = int(os.getenv("PERSONA_RAG_MODEL_PULL_TIMEOUT_SECONDS", "7200"))
     proc = subprocess.Popen(
         args,
         cwd=ROOT,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
-        text=True,
-        bufsize=1,
+        bufsize=0,
     )
-    output_tail: list[str] = []
+    chunk_queue: queue.Queue[bytes | None] = queue.Queue()
     assert proc.stdout is not None
+
+    def _reader() -> None:
+        try:
+            while True:
+                chunk = proc.stdout.read(4096)
+                if not chunk:
+                    break
+                chunk_queue.put(chunk)
+        finally:
+            chunk_queue.put(None)
+
+    reader = threading.Thread(target=_reader, daemon=True)
+    reader.start()
+    output_buffer = ""
+    started_at = time.monotonic()
+    last_output_at = started_at
+    reader_done = False
+    failure_reason: str | None = None
     while True:
-        chunk = proc.stdout.readline()
-        if chunk:
-            line = chunk.rstrip()
-            output_tail.append(line)
-            output_tail = output_tail[-20:]
-            if line:
-                print(line)
-        if proc.poll() is not None:
-            rest = proc.stdout.read()
-            if rest:
-                for line in rest.splitlines():
-                    output_tail.append(line)
-                    output_tail = output_tail[-20:]
-                    print(line)
+        try:
+            chunk = chunk_queue.get(timeout=0.5)
+        except queue.Empty:
+            chunk = b""
+        if chunk is None:
+            reader_done = True
+        elif chunk:
+            last_output_at = time.monotonic()
+            text = chunk.decode("utf-8", errors="replace")
+            output_buffer = (output_buffer + text)[-20000:]
+            print(text, end="", flush=True)
+        now = time.monotonic()
+        if proc.poll() is not None and reader_done:
             break
-    return {"ok": proc.returncode == 0, "returncode": proc.returncode, "tail": output_tail}
+        if timeout_seconds > 0 and now - started_at > timeout_seconds:
+            failure_reason = "timeout"
+        elif stall_timeout_seconds > 0 and now - last_output_at > stall_timeout_seconds:
+            failure_reason = "no_output_timeout"
+        if failure_reason:
+            print(f"\nModel source stalled: {failure_reason}. Trying next source if available.")
+            proc.terminate()
+            try:
+                proc.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait(timeout=10)
+            break
+    reader.join(timeout=2)
+    while not chunk_queue.empty():
+        chunk = chunk_queue.get_nowait()
+        if chunk:
+            text = chunk.decode("utf-8", errors="replace")
+            output_buffer = (output_buffer + text)[-20000:]
+            print(text, end="", flush=True)
+    output_tail = output_buffer.replace("\r", "\n").splitlines()[-20:]
+    return {
+        "ok": proc.returncode == 0 and failure_reason is None,
+        "returncode": proc.returncode,
+        "tail": output_tail,
+        "error": failure_reason,
+    }
 
 
 def ollama_tags_contain(model: str) -> bool:
