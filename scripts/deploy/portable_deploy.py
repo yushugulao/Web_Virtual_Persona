@@ -12,6 +12,7 @@ import json
 import os
 import platform
 import re
+import shlex
 import shutil
 import subprocess
 import tarfile
@@ -525,9 +526,13 @@ def download_file(url: str, destination: Path, dry_run: bool = False, retries: i
     destination.parent.mkdir(parents=True, exist_ok=True)
     curl = shutil.which("curl")
     if curl:
+        resume_args: list[str] = []
+        if destination.exists() and destination.stat().st_size > 0:
+            resume_args = ["-C", "-"]
         command = [
             curl,
             "-fL",
+            *resume_args,
             "--retry",
             "3",
             "--retry-delay",
@@ -582,6 +587,48 @@ def download_file(url: str, destination: Path, dry_run: bool = False, retries: i
             print(f"  download attempt {attempt} failed: {exc}")
             time.sleep(min(2 * attempt, 8))
     raise RuntimeError(f"failed to download {url}: {last_error}")
+
+
+def install_linux_package(package_name: str, dry_run: bool) -> None:
+    """Install a small system package through the host package manager."""
+    command = (
+        "SUDO=''; "
+        "if [ \"$(id -u)\" -ne 0 ]; then SUDO=sudo; fi; "
+        f"if command -v {package_name} >/dev/null 2>&1; then exit 0; fi; "
+        "if command -v apt-get >/dev/null 2>&1; then "
+        f"$SUDO apt-get update && $SUDO apt-get install -y {package_name}; "
+        "elif command -v dnf >/dev/null 2>&1; then "
+        f"$SUDO dnf install -y {package_name}; "
+        "elif command -v yum >/dev/null 2>&1; then "
+        f"$SUDO yum install -y {package_name}; "
+        "elif command -v pacman >/dev/null 2>&1; then "
+        f"$SUDO pacman -Sy --noconfirm {package_name}; "
+        "else "
+        f"echo 'No supported package manager found. Install {package_name} manually.'; exit 1; "
+        "fi"
+    )
+    code = run_live(["sh", "-c", command], dry_run=dry_run)
+    if code != 0:
+        raise RuntimeError(f"failed to install system package {package_name}")
+
+
+def install_ollama_linux_archive(method: dict[str, Any], dry_run: bool) -> None:
+    """Install Ollama on Linux without the opaque pipe-to-tar installer path."""
+    url = method.get("url") or "https://ollama.com/download/ollama-linux-amd64.tar.zst"
+    filename = method.get("filename") or "ollama-linux-amd64.tar.zst"
+    archive = DOWNLOAD_DIR / "ollama" / filename
+    print("Installing Ollama from the official Linux archive.")
+    print("This archive is large because it includes model runners; slow networks may take a while.")
+    install_linux_package("zstd", dry_run=dry_run)
+    download_file(url, archive, dry_run=dry_run, retries=3)
+    command = f"zstd -dc {shlex.quote(str(archive))} | tar -xf - -C /usr/local"
+    code = run_live(["sh", "-c", command], dry_run=dry_run, timeout=None)
+    if code != 0:
+        raise RuntimeError(f"Ollama archive extraction failed with exit code {code}")
+    if not dry_run:
+        code, stdout, stderr = run_capture(["ollama", "--version"], timeout=20)
+        if code != 0:
+            raise RuntimeError(f"Ollama installed but validation failed: {stderr or stdout}")
 
 
 def github_latest_asset_url(repo: str, pattern: str) -> tuple[str, str]:
@@ -653,6 +700,9 @@ def install_dependency_action(action: dict[str, Any], dry_run: bool) -> dict[str
             target = DOWNLOAD_DIR / action["id"] / name
             download_file(url, target, dry_run=dry_run)
             extract_archive(target, ROOT / method.get("extract_to", ".deploy/portable/tools"), dry_run=dry_run)
+            result["ok"] = True
+        elif kind == "ollama_linux_archive":
+            install_ollama_linux_archive(method, dry_run=dry_run)
             result["ok"] = True
         else:
             raise RuntimeError(f"unsupported install method: {kind}")
