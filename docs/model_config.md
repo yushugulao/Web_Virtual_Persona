@@ -6,13 +6,12 @@
 
 ```text
 qwen3.5:9b
-qwen3:8b
 qwen3-embedding:0.6b
 ```
 
 部署向导内置三个 profile：
 
-- `standard_gpu`：推荐给 12GB+ VRAM 的 NVIDIA GPU，使用 `qwen3.5:9b`。
+- `standard_gpu`：推荐给 12GB+ VRAM 的 NVIDIA GPU，使用 `qwen3.5:9b` 和 `qwen3-embedding:0.6b`。
 - `minimal_cpu`：给 CPU-only 或低显存机器，使用较轻模型路线，速度较慢。
 - `no_model_dev`：用于 CI、前端和 API 开发，不拉取模型。
 

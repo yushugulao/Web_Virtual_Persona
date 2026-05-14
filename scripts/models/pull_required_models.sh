@@ -6,7 +6,7 @@ cd "$ROOT"
 
 MODELS=("$@")
 if [ "${#MODELS[@]}" -eq 0 ]; then
-  MODELS=("qwen3.5:9b" "qwen3:8b" "qwen3-embedding:0.6b")
+  MODELS=("qwen3.5:9b" "qwen3-embedding:0.6b")
 fi
 
 mkdir -p models/ollama models/logs

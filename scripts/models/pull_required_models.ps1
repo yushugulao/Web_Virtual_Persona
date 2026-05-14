@@ -1,5 +1,5 @@
 param(
-  [string[]]$Models = @("qwen3.5:9b", "qwen3:8b", "qwen3-embedding:0.6b"),
+  [string[]]$Models = @("qwen3.5:9b", "qwen3-embedding:0.6b"),
   [switch]$InstallMissing
 )
 

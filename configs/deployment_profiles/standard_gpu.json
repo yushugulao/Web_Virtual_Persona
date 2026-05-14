@@ -9,11 +9,10 @@
   },
   "models": [
     "qwen3.5:9b",
-    "qwen3:8b",
     "qwen3-embedding:0.6b"
   ],
   "env": {
-    "PERSONA_RAG_GENERATION_MODEL": "qwen3:8b",
+    "PERSONA_RAG_GENERATION_MODEL": "qwen3.5:9b",
     "PERSONA_RAG_LOW_GENERATION_MODEL": "qwen3.5:9b",
     "PERSONA_RAG_MEDIUM_GENERATION_MODEL": "qwen3.5:9b",
     "PERSONA_RAG_HIGH_GENERATION_MODEL": "qwen3.5:9b",
