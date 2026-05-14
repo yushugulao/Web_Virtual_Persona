@@ -1,0 +1,5 @@
+@layer persona-rag-panels {
+  :root {
+    --persona-rag-panels-layer: ready;
+  }
+}

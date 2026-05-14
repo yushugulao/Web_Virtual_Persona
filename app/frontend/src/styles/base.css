@@ -1,0 +1,5 @@
+@layer persona-rag-base {
+  :root {
+    --persona-rag-base-layer: ready;
+  }
+}

@@ -1,0 +1,172 @@
+{
+  "theme_id": "klee_bomb",
+  "display_name": "蹦蹦炸弹！",
+  "updated_at": "2026-05-10",
+  "asset_policy": "本地课程设计与个人实践用途。素材只作为前端 UI 主题装饰，不进入 RAG、检索、记忆、语料库、模型提示词或后端索引。",
+  "source_priority": [
+    "https://genshin-impact.fandom.com/wiki/Klee/Gallery",
+    "https://genshin-impact.fandom.com/wiki/Category:Klee_Talent_Icons",
+    "https://genshin-impact.fandom.com/wiki/Jumpy_Dumpty",
+    "https://genshin-impact.fandom.com/wiki/Sparks_%27n%27_Splash",
+    "https://genshin-impact.fandom.com/wiki/Dodoco_Tales",
+    "https://genshin-impact.fandom.com/wiki/Jumpy_Dumpty_Party_Popper"
+  ],
+  "palette_source": {
+    "requested_url": "https://zhuanlan.zhihu.com/p/672655597",
+    "status": "not_accessible_during_implementation",
+    "fallback_palette": [
+      "#fff3df",
+      "#f8e6c8",
+      "#c63d32",
+      "#7b221f",
+      "#f08a38",
+      "#ffbf4d",
+      "#7a4b2a",
+      "#4f9b63",
+      "#221512"
+    ],
+    "note": "知乎配色页实现时无法稳定抓取；当前使用从原版可莉视觉中抽取的奶油、纸张米白、可莉红、深栗红、火花橙、炸弹金、书包棕、四叶草绿和墨线黑。"
+  },
+  "removed_assets": [
+    {
+      "file": "klee_birthday_official.webp",
+      "reason": "横幅大图在页面里像视频/大背景，被移出主题可见层。"
+    },
+    {
+      "file": "jumpy_dumpty.webp",
+      "reason": "来自技能 GIF 预览帧，像战斗视频截图；已替换为静态原版技能图标。"
+    },
+    {
+      "file": "sparks_splash.webp",
+      "reason": "来自技能 GIF 预览帧，像战斗视频截图；已替换为静态原版技能图标。"
+    }
+  ],
+  "assets": [
+    {
+      "file": "klee_full.webp",
+      "title": "Klee Profile",
+      "asset_type": "原版可莉完整角色形象",
+      "source_page_url": "https://genshin-impact.fandom.com/wiki/Klee/Gallery",
+      "file_page_url": "https://genshin-impact.fandom.com/wiki/File:Klee_Profile.png",
+      "direct_file_url": "https://static.wikia.nocookie.net/gensin-impact/images/2/2d/Klee_Profile.png/revision/latest?cb=20221009201519",
+      "original_sha1_from_source": "d02f848b389740594843b3f5c89e912d3f22c37b",
+      "local_sha256": "3bf7731435e4c34575b48e6ea6fcc4f694b8cd90296921dad2f8b72c21fdfa0a",
+      "local_bytes": 304838,
+      "dimensions": "2154x1320",
+      "usage": "主题第一视觉信号；用于登录页、选择页、聊天页背景贴纸层的局部放大和裁切。",
+      "processing": "原版素材，前端仅做 CSS 裁切、透明叠层、缩放、混合和位置压叠。"
+    },
+    {
+      "file": "klee_wish.webp",
+      "title": "Klee Full Wish",
+      "asset_type": "原版游戏祈愿形象，含可莉与嘟嘟可相关元素",
+      "source_page_url": "https://genshin-impact.fandom.com/wiki/Klee/Gallery",
+      "file_page_url": "https://genshin-impact.fandom.com/wiki/File:Klee_Wish.png",
+      "direct_file_url": "https://static.wikia.nocookie.net/gensin-impact/images/f/f4/Klee_Wish.png/revision/latest?cb=20231214215745",
+      "original_sha1_from_source": "2e336151fd9293205d0bf0c86ce2d598dff5e4b1",
+      "local_sha256": "076b2942a22a54746ae12f210391d151ab837fe683196d7c8c389f6f4056280a",
+      "local_bytes": 170922,
+      "dimensions": "2048x1024",
+      "usage": "主题贴纸层，补充可莉动作与嘟嘟可语境。",
+      "processing": "原版素材，前端仅做局部显示、透明叠层和缩放。"
+    },
+    {
+      "file": "jumpy_dumpty_icon.png",
+      "title": "Talent Jumpy Dumpty",
+      "asset_type": "蹦蹦炸弹原版技能图标",
+      "source_page_url": "https://genshin-impact.fandom.com/wiki/Category:Klee_Talent_Icons",
+      "file_page_url": "https://genshin-impact.fandom.com/wiki/File:Talent_Jumpy_Dumpty.png",
+      "direct_file_url": "https://static.wikia.nocookie.net/gensin-impact/images/3/33/Talent_Jumpy_Dumpty.png/revision/latest?cb=20210607090734",
+      "original_sha1_from_source": "8f37d2875d1e96e02cff57867008412764c18fbd",
+      "local_sha256": "d9eec5a36af5078ded7a7a6a72d5f1618daa05e3f626226eacc837b1f8b20041",
+      "local_bytes": 6084,
+      "dimensions": "128x128",
+      "usage": "按钮、卡片、会话项和面板角标的主贴纸元素。",
+      "processing": "原版静态技能图标；前端仅做缩放、旋转和透明叠层。"
+    },
+    {
+      "file": "sparks_splash_icon.png",
+      "title": "Talent Sparks 'n' Splash",
+      "asset_type": "轰轰火花原版技能图标",
+      "source_page_url": "https://genshin-impact.fandom.com/wiki/Category:Klee_Talent_Icons",
+      "file_page_url": "https://genshin-impact.fandom.com/wiki/File:Talent_Sparks_%27n%27_Splash.png",
+      "direct_file_url": "https://static.wikia.nocookie.net/gensin-impact/images/6/64/Talent_Sparks_%27n%27_Splash.png/revision/latest?cb=20210607092004",
+      "original_sha1_from_source": "d8267dff48202c9d45c1068ab3ff46075120b756",
+      "local_sha256": "8e29bdc34897742b57a79cfbfc20001fac328ec90f376e92117cd927bf265491",
+      "local_bytes": 5822,
+      "dimensions": "128x128",
+      "usage": "用户消息、状态条、按钮 hover 和火花纹理层。",
+      "processing": "原版静态技能图标；前端仅做缩放、旋转、重复和透明叠层。"
+    },
+    {
+      "file": "dodoco_tales_icon.png",
+      "title": "Weapon Dodoco Tales",
+      "asset_type": "嘟嘟可故事集原版武器图标",
+      "source_page_url": "https://genshin-impact.fandom.com/wiki/Dodoco_Tales",
+      "file_page_url": "https://genshin-impact.fandom.com/wiki/File:Weapon_Dodoco_Tales.png",
+      "direct_file_url": "https://static.wikia.nocookie.net/gensin-impact/images/5/51/Weapon_Dodoco_Tales.png/revision/latest?cb=20210613085809",
+      "original_sha1_from_source": "014f9c79d43d6e77d747dee2917058e7037a9f2c",
+      "local_sha256": "3a8be850ebc35425f0991b195ef09e095e61ba15bd12420f9402d6dc7b284245",
+      "local_bytes": 16538,
+      "dimensions": "256x256",
+      "usage": "嘟嘟可主题贴纸、输入框装饰、会话与设置面板角标。",
+      "processing": "原版静态图标；前端仅做缩放、旋转和透明叠层。"
+    },
+    {
+      "file": "jumpy_party_popper_icon.png",
+      "title": "Jumpy Dumpty Party Popper",
+      "asset_type": "蹦蹦炸弹派对礼炮原版道具图标",
+      "source_page_url": "https://genshin-impact.fandom.com/wiki/Jumpy_Dumpty_Party_Popper",
+      "file_page_url": "https://genshin-impact.fandom.com/wiki/File:Item_Jumpy_Dumpty_Party_Popper.png",
+      "direct_file_url": "https://static.wikia.nocookie.net/gensin-impact/images/4/48/Item_Jumpy_Dumpty_Party_Popper.png/revision/latest?cb=20220930161150",
+      "original_sha1_from_source": "aa7050a298e62c3881467c189319d472e2a5d57b",
+      "local_sha256": "ebee4da9ead727de5685c866b5d1eabf06d048e81633e731ad7872863f712e68",
+      "local_bytes": 17558,
+      "dimensions": "256x256",
+      "usage": "抽屉、管理页、登录卡片与背景角标，强化童趣和派对感。",
+      "processing": "原版静态道具图标；前端仅做缩放、旋转和透明叠层。"
+    },
+    {
+      "file": "klee_vision.webp",
+      "title": "Klee's Vision",
+      "asset_type": "可莉神之眼与小书包局部原版截图",
+      "source_page_url": "https://genshin-impact.fandom.com/wiki/Klee/Gallery",
+      "file_page_url": "https://genshin-impact.fandom.com/wiki/File:Klee_Vision.png",
+      "direct_file_url": "https://static.wikia.nocookie.net/gensin-impact/images/f/f8/Klee_Vision.png/revision/latest?cb=20230122012147",
+      "original_sha1_from_source": "2c1be82f518cce2e79b639d524c8c9b652d7b945",
+      "local_sha256": "9616482be9835d4640a40d505b594ef898c799800345c552342bde2629e2efdb",
+      "local_bytes": 31414,
+      "dimensions": "400x400",
+      "usage": "小书包/神之眼真实元素贴纸。",
+      "processing": "原版素材，前端仅做缩放、透明叠层和位置压叠。"
+    },
+    {
+      "file": "trifolium_shape.webp",
+      "title": "Trifolium Shape",
+      "asset_type": "四叶草 / Trifolium 原版图形",
+      "source_page_url": "https://genshin-impact.fandom.com/wiki/Klee/Gallery",
+      "file_page_url": "https://genshin-impact.fandom.com/wiki/File:Trifolium_Shape.png",
+      "direct_file_url": "https://static.wikia.nocookie.net/gensin-impact/images/8/84/Trifolium_Shape.png/revision/latest?cb=20220506221657",
+      "original_sha1_from_source": "ba73f20c0585756b1a5b649039b33d4c662b1bfa",
+      "local_sha256": "f9da49b75d2a99c404c99a13be840d23cf6bf811acd029df8ae9ab0f4af07aaf",
+      "local_bytes": 17518,
+      "dimensions": "512x512",
+      "usage": "四叶草贴纸、按钮徽记、消息气泡和卡片角标。",
+      "processing": "原版素材，前端仅做缩放、透明叠层和重复使用。"
+    },
+    {
+      "file": "klee_character_card.webp",
+      "title": "Klee Character Card",
+      "asset_type": "七圣召唤可莉角色卡",
+      "source_page_url": "https://genshin-impact.fandom.com/wiki/Klee/Gallery",
+      "file_page_url": "https://genshin-impact.fandom.com/wiki/File:Klee_Character_Card.png",
+      "direct_file_url": "https://static.wikia.nocookie.net/gensin-impact/images/d/d4/Klee_Character_Card.png/revision/latest?cb=20230118043948",
+      "original_sha1_from_source": "a730cfa84afd31d44174f525f4e9f0b6054a5402",
+      "local_sha256": "6705735addde6d4d8b60a758097a61cde883fd5c15721bca3c57fbbe7316bfec",
+      "local_bytes": 133692,
+      "dimensions": "420x720",
+      "usage": "小型卡片贴纸层，补充原版游戏内可莉形象。",
+      "processing": "原版素材，前端仅做缩放、透明叠层、轻微旋转和裁切。"
+    }
+  ]
+}

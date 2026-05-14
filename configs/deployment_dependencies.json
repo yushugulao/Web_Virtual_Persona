@@ -1,0 +1,199 @@
+{
+  "schema_version": 1,
+  "notes": [
+    "Only official upstream sources are listed here.",
+    "Installers and downloads are cached under .deploy/portable/downloads and must not be committed."
+  ],
+  "dependencies": [
+    {
+      "id": "uv",
+      "label": "uv Python package manager",
+      "command": "uv",
+      "required_for": ["backend", "tests", "setup"],
+      "manual_url": "https://docs.astral.sh/uv/getting-started/installation/",
+      "install": {
+        "windows": [
+          {
+            "kind": "command",
+            "description": "Official Astral standalone installer script",
+            "commands": [
+              ["powershell", "-ExecutionPolicy", "Bypass", "-Command", "irm https://astral.sh/uv/install.ps1 | iex"]
+            ]
+          }
+        ],
+        "linux": [
+          {
+            "kind": "command",
+            "description": "Official Astral standalone installer script",
+            "commands": [
+              ["sh", "-c", "curl -LsSf https://astral.sh/uv/install.sh | sh"]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "node",
+      "label": "Node.js LTS with npm",
+      "command": "node",
+      "required_for": ["frontend", "setup"],
+      "manual_url": "https://nodejs.org/en/download/",
+      "install": {
+        "windows": [
+          {
+            "kind": "command",
+            "description": "Install Node.js LTS through Windows Package Manager",
+            "requires_admin": false,
+            "commands": [
+              ["winget", "install", "--id", "OpenJS.NodeJS.LTS", "-e", "--accept-package-agreements", "--accept-source-agreements"]
+            ]
+          }
+        ],
+        "linux": [
+          {
+            "kind": "command",
+            "description": "Install Node.js and npm through the system package manager",
+            "requires_admin": true,
+            "commands": [
+              ["sh", "-c", "if command -v apt-get >/dev/null 2>&1; then sudo apt-get update && sudo apt-get install -y nodejs npm; elif command -v dnf >/dev/null 2>&1; then sudo dnf install -y nodejs npm; elif command -v yum >/dev/null 2>&1; then sudo yum install -y nodejs npm; elif command -v pacman >/dev/null 2>&1; then sudo pacman -Sy --noconfirm nodejs npm; else echo 'No supported package manager found. Install Node.js from https://nodejs.org/en/download/'; exit 1; fi"]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "git",
+      "label": "Git",
+      "command": "git",
+      "required_for": ["source", "setup"],
+      "manual_url": "https://git-scm.com/downloads",
+      "install": {
+        "windows": [
+          {
+            "kind": "command",
+            "description": "Install Git through Windows Package Manager",
+            "requires_admin": false,
+            "commands": [
+              ["winget", "install", "--id", "Git.Git", "-e", "--accept-package-agreements", "--accept-source-agreements"]
+            ]
+          }
+        ],
+        "linux": [
+          {
+            "kind": "command",
+            "description": "Install Git through the system package manager",
+            "requires_admin": true,
+            "commands": [
+              ["sh", "-c", "if command -v apt-get >/dev/null 2>&1; then sudo apt-get update && sudo apt-get install -y git; elif command -v dnf >/dev/null 2>&1; then sudo dnf install -y git; elif command -v yum >/dev/null 2>&1; then sudo yum install -y git; elif command -v pacman >/dev/null 2>&1; then sudo pacman -Sy --noconfirm git; else echo 'No supported package manager found. Install Git from https://git-scm.com/downloads'; exit 1; fi"]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "ollama",
+      "label": "Ollama local model runtime",
+      "command": "ollama",
+      "required_for": ["chat", "models"],
+      "manual_url": "https://ollama.com/download",
+      "install": {
+        "windows": [
+          {
+            "kind": "download_run",
+            "description": "Official Ollama Windows installer",
+            "url": "https://ollama.com/download/OllamaSetup.exe",
+            "filename": "OllamaSetup.exe",
+            "run": ["{download}"]
+          }
+        ],
+        "linux": [
+          {
+            "kind": "command",
+            "description": "Official Ollama Linux installer script",
+            "requires_admin": true,
+            "commands": [
+              ["sh", "-c", "curl -fsSL https://ollama.com/install.sh | sh"]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "frp",
+      "label": "frp tunnel client/server",
+      "command": "frpc",
+      "required_for": ["frp_tunnel"],
+      "manual_url": "https://github.com/fatedier/frp/releases",
+      "install": {
+        "windows": [
+          {
+            "kind": "github_latest_archive",
+            "description": "Latest official frp Windows amd64 release archive",
+            "repo": "fatedier/frp",
+            "asset_pattern": "windows_amd64.*\\.zip$",
+            "extract_to": ".deploy/portable/tools/frp"
+          }
+        ],
+        "linux": [
+          {
+            "kind": "github_latest_archive",
+            "description": "Latest official frp Linux amd64 release archive",
+            "repo": "fatedier/frp",
+            "asset_pattern": "linux_amd64.*\\.tar\\.gz$",
+            "extract_to": ".deploy/portable/tools/frp"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ssh",
+      "label": "OpenSSH client",
+      "command": "ssh",
+      "required_for": ["frp_tunnel", "remote_deploy"],
+      "manual_url": "https://www.openssh.com/",
+      "install": {
+        "windows": [
+          {
+            "kind": "manual",
+            "description": "Enable Windows OpenSSH Client from Optional Features"
+          }
+        ],
+        "linux": [
+          {
+            "kind": "command",
+            "description": "Install OpenSSH client through the system package manager",
+            "requires_admin": true,
+            "commands": [
+              ["sh", "-c", "if command -v apt-get >/dev/null 2>&1; then sudo apt-get update && sudo apt-get install -y openssh-client; elif command -v dnf >/dev/null 2>&1; then sudo dnf install -y openssh-clients; elif command -v yum >/dev/null 2>&1; then sudo yum install -y openssh-clients; elif command -v pacman >/dev/null 2>&1; then sudo pacman -Sy --noconfirm openssh; else echo 'No supported package manager found. Install OpenSSH client manually.'; exit 1; fi"]
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "nginx",
+      "label": "Nginx reverse proxy",
+      "command": "nginx",
+      "required_for": ["direct_public_server", "public_frontend"],
+      "manual_url": "https://nginx.org/en/download.html",
+      "install": {
+        "windows": [
+          {
+            "kind": "manual",
+            "description": "Windows Nginx is optional; local Windows deployments normally use Vite/FastAPI instead"
+          }
+        ],
+        "linux": [
+          {
+            "kind": "command",
+            "description": "Install Nginx through the system package manager",
+            "requires_admin": true,
+            "commands": [
+              ["sh", "-c", "if command -v apt-get >/dev/null 2>&1; then sudo apt-get update && sudo apt-get install -y nginx; elif command -v dnf >/dev/null 2>&1; then sudo dnf install -y nginx; elif command -v yum >/dev/null 2>&1; then sudo yum install -y nginx; elif command -v pacman >/dev/null 2>&1; then sudo pacman -Sy --noconfirm nginx; else echo 'No supported package manager found. Install Nginx from https://nginx.org/en/download.html'; exit 1; fi"]
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

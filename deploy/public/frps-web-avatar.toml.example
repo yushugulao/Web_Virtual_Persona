@@ -1,0 +1,11 @@
+bindPort = 7000
+proxyBindAddr = "127.0.0.1"
+
+auth.method = "token"
+auth.token = "__FRP_TOKEN__"
+
+transport.tcpMux = true
+
+log.to = "/var/log/frps.log"
+log.level = "info"
+log.maxDays = 7

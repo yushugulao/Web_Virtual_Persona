@@ -1,0 +1,5 @@
+@layer persona-rag-layout {
+  :root {
+    --persona-rag-layout-layer: ready;
+  }
+}

@@ -1,0 +1,15 @@
+[Unit]
+Description=Web Virtual Avatar FastAPI backend
+After=network-online.target ollama.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/web-avatar/app
+EnvironmentFile=/opt/web-avatar/app/.env
+ExecStart=/usr/bin/env uv run uvicorn app.backend.main:app --host 127.0.0.1 --port 8000
+Restart=always
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

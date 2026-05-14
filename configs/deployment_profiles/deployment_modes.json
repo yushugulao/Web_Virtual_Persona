@@ -1,0 +1,19 @@
+{
+  "modes": [
+    {
+      "id": "local_lan",
+      "label": "Local or LAN deployment",
+      "description": "Runs backend, frontend, Ollama, and local data on the current machine."
+    },
+    {
+      "id": "direct_public_server",
+      "label": "Direct public Linux server deployment",
+      "description": "Runs the full service on a public Linux server. Recommended only when the server has enough CPU/RAM/GPU for local models."
+    },
+    {
+      "id": "frp_tunnel",
+      "label": "Public frp tunnel deployment",
+      "description": "Runs models and backend on the local workstation while a public server provides Nginx HTTPS and frps."
+    }
+  ]
+}

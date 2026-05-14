@@ -1,0 +1,26 @@
+{
+  "id": "standard_gpu",
+  "label": "Standard NVIDIA GPU profile",
+  "description": "Recommended profile for machines with a modern NVIDIA GPU and at least about 12GB VRAM.",
+  "requirements": {
+    "min_ram_gb": 24,
+    "min_vram_mb": 12000,
+    "requires_nvidia_gpu": true
+  },
+  "models": [
+    "qwen3.5:9b",
+    "qwen3:8b",
+    "qwen3-embedding:0.6b"
+  ],
+  "env": {
+    "PERSONA_RAG_GENERATION_MODEL": "qwen3:8b",
+    "PERSONA_RAG_LOW_GENERATION_MODEL": "qwen3.5:9b",
+    "PERSONA_RAG_MEDIUM_GENERATION_MODEL": "qwen3.5:9b",
+    "PERSONA_RAG_HIGH_GENERATION_MODEL": "qwen3.5:9b",
+    "PERSONA_RAG_LOW_GENERATION_THINKING_BUDGET": "600",
+    "PERSONA_RAG_MEDIUM_GENERATION_THINKING_BUDGET": "2000",
+    "PERSONA_RAG_HIGH_GENERATION_THINKING_BUDGET": "4000",
+    "PERSONA_RAG_EMBEDDING_MODEL": "qwen3-embedding:0.6b",
+    "DOCUMENT_READER_ENABLE_MARKER_SURYA": "false"
+  }
+}

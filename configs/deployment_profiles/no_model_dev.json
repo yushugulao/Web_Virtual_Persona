@@ -1,0 +1,16 @@
+{
+  "id": "no_model_dev",
+  "label": "No-model development profile",
+  "description": "Builds frontend and backend dependencies without requiring Ollama models. Useful for CI, UI work, or low-resource machines.",
+  "requirements": {
+    "min_ram_gb": 4,
+    "min_vram_mb": 0,
+    "requires_nvidia_gpu": false
+  },
+  "models": [],
+  "env": {
+    "PERSONA_RAG_MODEL_PROVIDER": "ollama",
+    "PERSONA_RAG_AUTH_REQUIRED": "true",
+    "DOCUMENT_READER_ENABLE_MARKER_SURYA": "false"
+  }
+}

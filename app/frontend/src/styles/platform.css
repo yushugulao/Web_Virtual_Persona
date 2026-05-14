@@ -1,0 +1,5 @@
+@layer persona-rag-platform {
+  :root {
+    --persona-rag-platform-layer: ready;
+  }
+}

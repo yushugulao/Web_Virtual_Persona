@@ -1,0 +1,38 @@
+retrieval:
+  top_k: 6
+  first_stage_top_k: 40
+  include_private_by_default: false
+  mode: hybrid
+  sparse_retriever: sqlite_fts5
+  rrf_k: 60
+  query_rewrite_enabled: true
+  query_rewrite_max_queries: 3
+  query_rewrite_dense: false
+  local_reranker_enabled: true
+  source_selector_enabled: true
+  source_selector_intent_filter_enabled: true
+  source_selector_top_k: 12
+  vector_index_path: data/indexes/dense_qwen3_embedding_0_6b.json
+  reranker_backend: ollama_generate
+  reranker_hf_model: Qwen/Qwen3-Reranker-0.6B
+  reranker_hf_cache_dir: models/huggingface
+  reranker_batch_size: 8
+
+implemented:
+  sparse: sqlite_fts5_over_project_tokenizer
+  sparse_fallback: lexical_bm25_like
+  dense: qwen3_embedding_0_6b
+  fusion: reciprocal_rank_fusion
+  query_rewrite: deterministic_persona_intent_expansion
+  local_reranker: deterministic_intent_source_type_and_section_boost
+  source_prior: negative_fact_boost_for_sensitive_and_unsupported_claim_queries
+  source_selector: intent_aware_variable_evidence_set_after_fusion
+  citation_metric_gate: evidence_bearing_chunks_only
+  reranker_gate: disabled_by_default_until_adapter_scores_are_validated
+  reranker_diagnostic: scripts/eval/diagnose_reranker.ps1
+  ablation_runner: scripts/eval/run_retrieval_ablation.ps1
+  ranking_metrics: mean_mrr_and_mean_ndcg
+
+planned:
+  query_expansion: local_llm_rewrite_hyde_multi_query_ablation
+  reranker: qwen3_reranker_0_6b_with_validated_scoring_backend

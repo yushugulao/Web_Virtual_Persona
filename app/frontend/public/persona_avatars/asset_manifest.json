@@ -1,0 +1,72 @@
+{
+  "purpose": "System persona card portraits for the Web虚拟分身 public persona selector.",
+  "generated_at": "2026-05-10",
+  "assets": [
+    {
+      "persona_id": "benjamin_franklin",
+      "file": "benjamin_franklin.jpg",
+      "page_url": "https://commons.wikimedia.org/wiki/File:Benjamin_Franklin_1767.jpg",
+      "download_url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Benjamin_Franklin_1767.jpg",
+      "source_note": "Wikimedia Commons public-domain reproduction of David Martin's Benjamin Franklin portrait.",
+      "sha256": "f8b7afbd26fec15468b988ab85db5d19ad00f69f6af80a1213c5a15456f52bc8",
+      "bytes": 98561,
+      "optimized": true,
+      "optimized_at": "2026-05-12",
+      "max_long_edge_px": 900,
+      "jpeg_quality": 86
+    },
+    {
+      "persona_id": "nikola_tesla",
+      "file": "nikola_tesla.jpg",
+      "page_url": "https://commons.wikimedia.org/wiki/File:Blue_Portrait_of_Nikola_Tesla.jpg",
+      "download_url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Blue_Portrait_of_Nikola_Tesla.jpg",
+      "source_note": "Wikimedia Commons public-domain Nikola Tesla portrait.",
+      "sha256": "c0f4c8b689653b4ca9deb66335329d83f77f263066e4997f91372186a3012c08",
+      "bytes": 50208,
+      "optimized": true,
+      "optimized_at": "2026-05-12",
+      "max_long_edge_px": 900,
+      "jpeg_quality": 86
+    },
+    {
+      "persona_id": "helen_keller",
+      "file": "helen_keller.jpg",
+      "page_url": "https://www.loc.gov/item/90715103/",
+      "download_url": "https://cdn.loc.gov/service/pnp/cph/3c00000/3c01000/3c01700/3c01762v.jpg",
+      "source_note": "Library of Congress public-domain Helen Keller portrait.",
+      "sha256": "28060541f194b7f0ad029ff056f95065d4ca330df8fd4eba90323751b3c01a17",
+      "bytes": 104036,
+      "optimized": true,
+      "optimized_at": "2026-05-12",
+      "max_long_edge_px": 900,
+      "jpeg_quality": 86
+    },
+    {
+      "persona_id": "charles_darwin",
+      "file": "charles_darwin.jpg",
+      "page_url": "https://www.loc.gov/pictures/item/2004674431/",
+      "download_url": "https://tile.loc.gov/storage-services/service/pnp/ds/16300/16381v.jpg",
+      "source_note": "Library of Congress public-domain Charles Darwin portrait.",
+      "sha256": "2046f27542e574c5ea91cc785a275541efc7a02a245196a8366d1f71d00a56b2",
+      "bytes": 72893,
+      "optimized": true,
+      "optimized_at": "2026-05-12",
+      "max_long_edge_px": 900,
+      "jpeg_quality": 86
+    },
+    {
+      "persona_id": "paul_graham_public_archive",
+      "file": "paul_graham.jpg",
+      "page_url": "https://commons.wikimedia.org/wiki/File:Paulgraham_240x320.jpg",
+      "download_url": "https://commons.wikimedia.org/wiki/Special:Redirect/file/Paulgraham_240x320.jpg",
+      "source_note": "Wikimedia Commons image used for the public Paul Graham archive card.",
+      "sha256": "d91a663dd2fcf74400a574e41721c0ad379c837e9c90ed0c902e4d026d64c26a",
+      "bytes": 13599,
+      "optimized": true,
+      "optimized_at": "2026-05-12",
+      "max_long_edge_px": 900,
+      "jpeg_quality": 86
+    }
+  ],
+  "optimization_policy": "System persona avatars must stay <= 500 KiB each; prefer max long edge 900px JPEG/WebP for public cards."
+}

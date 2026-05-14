@@ -1,0 +1,33 @@
+app:
+  name: Local Persona-RAG
+  environment: dev
+  host: 127.0.0.1
+  port: 8000
+  corpus_dir: corpus
+  data_dir: data
+  sqlite_path: data/sqlite/persona_rag.sqlite3
+
+frontend:
+  dev_url: http://127.0.0.1:5173
+  design: three-pane-workbench
+
+chat:
+  generation_model: qwen3:8b
+  boundary_fast_path_enabled: true
+  model_think: true
+  model_num_predict: 1280
+  model_timeout_seconds: 480
+  model_keep_alive: 30m
+  model_temperature: 0.2
+  model_top_p: 0.9
+  post_persona_alignment_enabled: true
+
+evaluation:
+  questions_path: evals/questions/persona_benchmark_v1.json
+  default_mode: retrieval
+  latest_baseline_run: 3c547e0e08d34327
+  latest_retrieval_baseline_run: 3c547e0e08d34327
+  latest_chat_baseline_run: ac180e93270241ba
+  latest_retrieval_ablation_report: data/eval_reports/retrieval_ablation_20260425_180254.md
+  latest_chat_eval_report: data/eval_reports/chat_eval_20260425_173900.md
+  latest_model_reranker_ablation_report: data/eval_reports/retrieval_ablation_20260425_094929.md

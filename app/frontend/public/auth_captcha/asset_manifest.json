@@ -1,0 +1,38 @@
+{
+  "source": "Lorem Picsum seeded photo service",
+  "source_url": "https://picsum.photos/",
+  "purpose": "Local slider-puzzle authentication challenge backgrounds. These are richer texture/photo images and are intentionally separate from the Klee UI theme.",
+  "generated_at": "2026-05-10",
+  "images": [
+    {
+      "file": "notebook-paper.jpg",
+      "download_url": "https://picsum.photos/seed/persona-notebook-paper/640/300",
+      "role": "captcha_background"
+    },
+    {
+      "file": "city-alley.jpg",
+      "download_url": "https://picsum.photos/seed/persona-city-alley/640/300",
+      "role": "captcha_background"
+    },
+    {
+      "file": "forest-path.jpg",
+      "download_url": "https://picsum.photos/seed/persona-forest-path/640/300",
+      "role": "captcha_background"
+    },
+    {
+      "file": "market-texture.jpg",
+      "download_url": "https://picsum.photos/seed/persona-market-texture/640/300",
+      "role": "captcha_background"
+    },
+    {
+      "file": "books-shelf.jpg",
+      "download_url": "https://picsum.photos/seed/persona-books-shelf/640/300",
+      "role": "captcha_background"
+    },
+    {
+      "file": "mountain-river.jpg",
+      "download_url": "https://picsum.photos/seed/persona-mountain-river/640/300",
+      "role": "captcha_background"
+    }
+  ]
+}

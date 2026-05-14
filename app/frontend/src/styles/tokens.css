@@ -1,0 +1,5 @@
+@layer persona-rag-tokens {
+  :root {
+    --persona-rag-style-layer: tokens;
+  }
+}

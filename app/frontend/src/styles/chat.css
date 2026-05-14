@@ -1,0 +1,5 @@
+@layer persona-rag-chat {
+  :root {
+    --persona-rag-chat-layer: ready;
+  }
+}

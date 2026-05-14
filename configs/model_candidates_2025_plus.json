@@ -1,0 +1,131 @@
+{
+  "schema_version": 1,
+  "last_reviewed": "2026-05-06",
+  "policy": {
+    "download_root": "models",
+    "network_policy": "ollama_registry_or_huggingface_whitelist_only",
+    "native_binary_policy": "do_not_download_new_native_inference_binaries",
+    "default_runtime_provider": "ollama",
+    "production_switch_policy": "candidate_models_must_pass_smoke_and_persona_gates_before_becoming_default"
+  },
+  "ollama_candidates": [
+    {
+      "id": "qwen3_5_9b",
+      "model": "qwen3.5:9b",
+      "family": "Qwen3.5",
+      "release_window": "2026",
+      "role": ["medium_candidate", "persona_actor_candidate", "general_chinese_dialogue"],
+      "estimated_size_gb": 6.6,
+      "context_window": "256K",
+      "source_url": "https://registry.ollama.com/library/qwen3.5/tags",
+      "upstream_url": "https://huggingface.co/Qwen/Qwen3.5-9B",
+      "license": "apache-2.0",
+      "notes": "Primary 2025+ medium-effort candidate. Strong Chinese and long-context support. Use think=false for current Ollama chat calls; a direct think=true smoke spent the short budget in message.thinking and returned empty visible content, while the 2026-05-06 backend naturalness bakeoff passed 32/32 with think=false."
+    },
+    {
+      "id": "ministral_3_14b",
+      "model": "ministral-3:14b",
+      "family": "Ministral 3",
+      "release_window": "2026",
+      "role": ["medium_candidate", "high_candidate", "dense_alternative"],
+      "estimated_size_gb": 9.0,
+      "context_window": "128K",
+      "source_url": "https://ollama.com/library/ministral-3/tags",
+      "upstream_url": "https://mistral.ai/news/mistral-3",
+      "license": "mistral_research_license_or_model_card_terms",
+      "notes": "Dense 14B alternative for naturalness and instruction-following comparison. First Franklin naturalness subset passed 7/8; one reflection turn became list-like/template-heavy, so do not route by default without more tuning."
+    },
+    {
+      "id": "qwen3_5_27b_int4",
+      "model": "qwen3.5:27b-int4",
+      "family": "Qwen3.5",
+      "release_window": "2026",
+      "role": ["high_candidate", "qwen36_comparison"],
+      "estimated_size_gb": 16.0,
+      "context_window": "256K",
+      "local_windows_status": "unsupported_by_ollama_manifest_on_2026-05-06",
+      "source_url": "https://registry.ollama.com/library/qwen3.5/tags",
+      "upstream_url": "https://huggingface.co/Qwen/Qwen3.5-27B-GPTQ-Int4",
+      "license": "apache-2.0",
+      "notes": "Official Ollama high-effort comparison candidate, but local Windows pull returned `this model requires macOS` on 2026-05-06. Keep current batiai/qwen3.6-27b:q3 as the usable dense Qwen high-effort route unless a Windows-compatible Qwen3.5 27B tag appears."
+    },
+    {
+      "id": "gemma4_31b",
+      "model": "gemma4:31b",
+      "family": "Gemma 4",
+      "release_window": "2026",
+      "role": ["high_candidate", "dense_alternative", "multilingual_comparison"],
+      "estimated_size_gb": 20.0,
+      "context_window": "256K",
+      "source_url": "https://registry.ollama.com/library/gemma4/tags",
+      "upstream_url": "https://deepmind.google/models/gemma/gemma-4/",
+      "license": "gemma_terms_or_model_card_terms",
+      "notes": "Large dense high-effort candidate. Expected to spill beyond 16GB VRAM on this laptop, so use only for slow manual comparison."
+    },
+    {
+      "id": "phi4_reasoning_14b",
+      "model": "phi4-reasoning:14b",
+      "family": "Phi-4 reasoning",
+      "release_window": "2025",
+      "role": ["judge_candidate", "claim_check_candidate"],
+      "estimated_size_gb": 11.0,
+      "context_window": "32K",
+      "source_url": "https://registry.ollama.com/library/phi4-reasoning/tags",
+      "upstream_url": "https://www.microsoft.com/en-us/research/publication/phi-4-reasoning-technical-report/",
+      "license": "microsoft_model_card_terms",
+      "notes": "Reasoning-oriented dense 14B candidate for offline judge/NLI style checks, not default persona speech."
+    },
+    {
+      "id": "gpt_oss_20b",
+      "model": "gpt-oss:20b",
+      "family": "gpt-oss",
+      "release_window": "2025",
+      "role": ["judge_candidate", "verification_candidate"],
+      "estimated_size_gb": 14.0,
+      "context_window": "128K",
+      "source_url": "https://registry.ollama.com/library/gpt-oss/tags",
+      "upstream_url": "https://openai.com/index/gpt-oss-model-card/",
+      "license": "apache-2.0_plus_usage_policy",
+      "notes": "Open-weight reasoning model. Keep away from default persona speech until safety and style behavior are measured."
+    }
+  ],
+  "huggingface_gguf_candidates": [
+    {
+      "id": "coser_llama31_8b_q4_k_m",
+      "ollama_alias": "coser-llama3.1-8b:q4_k_m",
+      "family": "CoSER Llama 3.1 8B",
+      "release_window": "2025",
+      "role": ["persona_actor_experiment", "roleplay_candidate"],
+      "repo_id": "mradermacher/CoSER-Llama-3.1-8B-GGUF",
+      "filename": "CoSER-Llama-3.1-8B.Q4_K_M.gguf",
+      "download_url": "https://huggingface.co/mradermacher/CoSER-Llama-3.1-8B-GGUF/resolve/main/CoSER-Llama-3.1-8B.Q4_K_M.gguf?download=true",
+      "estimated_size_gb": 5.0,
+      "source_url": "https://huggingface.co/mradermacher/CoSER-Llama-3.1-8B-GGUF",
+      "upstream_url": "https://github.com/Neph0s/CoSER",
+      "license": "mit",
+      "sha256": "",
+      "notes": "Role-playing specialist. Use as a Persona-first Actor experiment only; Chinese naturalness and factual boundaries must be validated before route use."
+    }
+  ],
+  "deferred_candidates": [
+    {
+      "id": "glm_4_5_air",
+      "reason": "MoE and likely less suitable for the current 16GB VRAM demo path."
+    },
+    {
+      "id": "kimi_k2",
+      "reason": "Very large MoE family; not a practical local laptop default."
+    },
+    {
+      "id": "llama_4",
+      "reason": "MoE and large memory footprint; not aligned with the current dense/local preference."
+    }
+  ],
+  "recommended_effort_routing_after_eval": {
+    "low": "qwen3:8b",
+    "medium": "winner(qwen3.5:9b, ministral-3:14b)",
+    "high": "winner(batiai/qwen3.6-27b:q3, qwen3.5:27b-int4, gemma4:31b)",
+    "judge": "winner(qwen3:8b, phi4-reasoning:14b, gpt-oss:20b)",
+    "persona_first_actor_experiment": "coser-llama3.1-8b:q4_k_m"
+  }
+}

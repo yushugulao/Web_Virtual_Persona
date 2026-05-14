@@ -1,0 +1,36 @@
+generation:
+  provider: ollama
+  default_model: qwen3:8b
+  fallback_model: qwen3:4b-instruct
+  quality_model: batiai/qwen3.6-27b:q3
+  quality_model_min_effort: high
+  quality_model_think: false
+  quality_model_refine_passes: 0
+  ollama_base_url: http://127.0.0.1:11434
+  ollama_models_dir: models/ollama
+  timeout_seconds: 480
+  keep_alive: 30m
+  think: true
+
+cache_paths:
+  ollama_models: models/ollama
+  hf_hub_cache: models/huggingface/hub
+  hf_datasets_cache: models/huggingface/datasets
+  hf_xet_cache: models/huggingface/xet
+  sentence_transformers_home: models/huggingface/sentence_transformers
+  torch_home: models/torch
+  modelscope_cache: models/modelscope
+
+embedding:
+  default_model: qwen3-embedding:0.6b
+  baseline_model: bge-m3
+
+reranking:
+  backend: ollama_generate
+  default_model: dengcao/Qwen3-Reranker-0.6B:Q8_0
+  hf_model: Qwen/Qwen3-Reranker-0.6B
+  hf_cache_dir: models/huggingface
+  enabled_by_default: false
+  top_n: 12
+  timeout_seconds: 120
+  note: Ollama generate adapter is not usable for yes/no scoring; sentence-transformers is validated but slower and lower precision than the deterministic default.

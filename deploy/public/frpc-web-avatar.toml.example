@@ -1,0 +1,12 @@
+serverAddr = "<PUBLIC_SERVER_IP>"
+serverPort = 7000
+
+auth.method = "token"
+auth.token = "__FRP_TOKEN__"
+
+[[proxies]]
+name = "web-avatar-backend"
+type = "tcp"
+localIP = "127.0.0.1"
+localPort = 8001
+remotePort = 18001

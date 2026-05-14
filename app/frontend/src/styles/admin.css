@@ -1,0 +1,5 @@
+@layer persona-rag-admin {
+  :root {
+    --persona-rag-admin-layer: ready;
+  }
+}

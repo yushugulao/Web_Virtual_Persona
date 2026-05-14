@@ -1,0 +1,25 @@
+{
+  "id": "minimal_cpu",
+  "label": "Minimal CPU / low-resource profile",
+  "description": "Runs the project with the lightest supported local model route. Suitable for CPU-only or low-VRAM machines, but chat latency may be high.",
+  "requirements": {
+    "min_ram_gb": 16,
+    "min_vram_mb": 0,
+    "requires_nvidia_gpu": false
+  },
+  "models": [
+    "qwen3:8b",
+    "qwen3-embedding:0.6b"
+  ],
+  "env": {
+    "PERSONA_RAG_GENERATION_MODEL": "qwen3:8b",
+    "PERSONA_RAG_LOW_GENERATION_MODEL": "qwen3:8b",
+    "PERSONA_RAG_MEDIUM_GENERATION_MODEL": "qwen3:8b",
+    "PERSONA_RAG_HIGH_GENERATION_MODEL": "qwen3:8b",
+    "PERSONA_RAG_LOW_GENERATION_THINKING_BUDGET": "400",
+    "PERSONA_RAG_MEDIUM_GENERATION_THINKING_BUDGET": "900",
+    "PERSONA_RAG_HIGH_GENERATION_THINKING_BUDGET": "1600",
+    "PERSONA_RAG_EMBEDDING_MODEL": "qwen3-embedding:0.6b",
+    "DOCUMENT_READER_ENABLE_MARKER_SURYA": "false"
+  }
+}

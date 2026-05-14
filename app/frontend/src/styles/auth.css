@@ -1,0 +1,5 @@
+@layer persona-rag-auth {
+  :root {
+    --persona-rag-auth-layer: ready;
+  }
+}
