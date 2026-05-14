@@ -81,7 +81,7 @@ python scripts/deploy/portable_deploy.py --mode frp_tunnel --install-missing
 部署向导会根据机器条件推荐模型配置：
 
 - `standard_gpu`：有 NVIDIA GPU 且显存较充足，默认使用 Qwen3.5 9B。
-- `quick_gpu`：低带宽或首次公网 smoke 推荐，使用 Qwen3.5 0.8B，仍然从公开模型源下载。
+- `quick_gpu`：低带宽或首次公网 smoke 推荐，使用紧凑 Qwen3 0.6B，仍然从公开模型源下载。
 - `minimal_cpu`：没有合适 GPU 时使用，速度较慢。
 - `no_model_dev`：只部署界面和 API，不拉取本地大模型，适合开发或排查环境。
 

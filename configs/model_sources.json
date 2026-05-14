@@ -120,6 +120,56 @@
         }
       ]
     },
+    "qwen3:0.6b": {
+      "description": "Compact quick-deploy generation model for low-bandwidth smoke deployments.",
+      "sources": [
+        {
+          "kind": "ollama_registry",
+          "model": "qwen3:0.6b",
+          "label": "Ollama registry",
+          "timeout_seconds": 240,
+          "stall_timeout_seconds": 90,
+          "progress_stall_timeout_seconds": 120,
+          "complete_stall_timeout_seconds": 45
+        },
+        {
+          "kind": "ollama_copy",
+          "source_model": "modelscope.cn/Qwen/Qwen3-0.6B-GGUF:Qwen3-0.6B-Q4_K_M.gguf",
+          "target_model": "qwen3:0.6b",
+          "label": "ModelScope Ollama GGUF bridge",
+          "timeout_seconds": 3600,
+          "stall_timeout_seconds": 240,
+          "progress_stall_timeout_seconds": 600,
+          "complete_stall_timeout_seconds": 180
+        },
+        {
+          "kind": "ollama_copy",
+          "source_model": "hf.co/unsloth/Qwen3-0.6B-GGUF:Q4_K_M",
+          "target_model": "qwen3:0.6b",
+          "label": "Ollama Hugging Face GGUF bridge",
+          "timeout_seconds": 3600,
+          "stall_timeout_seconds": 240,
+          "progress_stall_timeout_seconds": 600,
+          "complete_stall_timeout_seconds": 180
+        },
+        {
+          "kind": "gguf_import",
+          "url": "https://huggingface.co/unsloth/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q4_K_M.gguf",
+          "filename": "Qwen3-0.6B-Q4_K_M.gguf",
+          "target_model": "qwen3:0.6b",
+          "label": "Direct Hugging Face GGUF download",
+          "download_timeout_seconds": 120
+        },
+        {
+          "kind": "gguf_import",
+          "url": "https://hf-mirror.com/unsloth/Qwen3-0.6B-GGUF/resolve/main/Qwen3-0.6B-Q4_K_M.gguf",
+          "filename": "Qwen3-0.6B-Q4_K_M.gguf",
+          "target_model": "qwen3:0.6b",
+          "label": "Direct HF mirror GGUF download",
+          "download_timeout_seconds": 3600
+        }
+      ]
+    },
     "qwen3-embedding:0.6b": {
       "description": "Embedding model for retrieval.",
       "sources": [
@@ -131,6 +181,26 @@
           "stall_timeout_seconds": 90,
           "progress_stall_timeout_seconds": 90,
           "complete_stall_timeout_seconds": 45
+        },
+        {
+          "kind": "ollama_copy",
+          "source_model": "modelscope.cn/Qwen/Qwen3-Embedding-0.6B-GGUF:Qwen3-Embedding-0.6B-Q8_0.gguf",
+          "target_model": "qwen3-embedding:0.6b",
+          "label": "ModelScope Ollama GGUF bridge",
+          "timeout_seconds": 7200,
+          "stall_timeout_seconds": 240,
+          "progress_stall_timeout_seconds": 600,
+          "complete_stall_timeout_seconds": 180
+        },
+        {
+          "kind": "ollama_copy",
+          "source_model": "andersc/qwen3-embedding:0.6b",
+          "target_model": "qwen3-embedding:0.6b",
+          "label": "Ollama community mirror",
+          "timeout_seconds": 3600,
+          "stall_timeout_seconds": 240,
+          "progress_stall_timeout_seconds": 600,
+          "complete_stall_timeout_seconds": 180
         },
         {
           "kind": "ollama_copy",
