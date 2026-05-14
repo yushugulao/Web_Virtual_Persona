@@ -9,7 +9,7 @@ param(
   [string]$Answers = "",
   [ValidateSet("auto", "minimal_cpu", "standard_gpu", "no_model_dev")]
   [string]$Profile = "auto",
-  [ValidateSet("", "local_lan", "direct_public_server", "frp_tunnel")]
+  [ValidateSet("", "local_lan", "direct_public_server", "frp_tunnel", "compute_backend_frp")]
   [string]$Mode = "",
   [switch]$PullModels
 )

@@ -23,6 +23,8 @@ COPY_ENTRIES = [
     ".env.linux.example",
     ".gitattributes",
     ".gitignore",
+    "install.sh",
+    "install.ps1",
     "pyproject.toml",
     "uv.lock",
 ]

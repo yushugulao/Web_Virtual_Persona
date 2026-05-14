@@ -35,6 +35,21 @@ INSTALL_REPORT_PATH = LOCAL_STATE_DIR / "install_report.json"
 OLLAMA_TAGS_URL = "http://127.0.0.1:11434/api/tags"
 
 
+def _prepend_common_user_bins() -> None:
+    """Make freshly installed user tools visible inside the current process."""
+    candidates = [
+        Path.home() / ".local" / "bin",
+        Path.home() / ".cargo" / "bin",
+        Path.home() / "AppData" / "Local" / "Microsoft" / "WindowsApps",
+    ]
+    existing = [str(path) for path in candidates if path.exists()]
+    if existing:
+        os.environ["PATH"] = os.pathsep.join(existing + [os.environ.get("PATH", "")])
+
+
+_prepend_common_user_bins()
+
+
 @dataclass
 class CommandInfo:
     name: str
@@ -261,7 +276,10 @@ def collect_answers(args: argparse.Namespace, host: HostInfo) -> dict[str, Any]:
     profile = None if args.profile in {None, "", "auto"} else args.profile
     profile = profile or answers.get("model_profile")
     if not args.non_interactive and not deployment_mode:
-        deployment_mode = prompt_value("Deployment mode (local_lan/direct_public_server/frp_tunnel)", "local_lan")
+        deployment_mode = prompt_value(
+            "Deployment mode (local_lan/direct_public_server/frp_tunnel/compute_backend_frp)",
+            "local_lan",
+        )
     if not args.non_interactive and not profile:
         profile = prompt_value("Model profile (auto/minimal_cpu/standard_gpu/no_model_dev)", "auto")
     profile = None if profile in {None, "", "auto"} else str(profile)
@@ -284,14 +302,21 @@ def collect_answers(args: argparse.Namespace, host: HostInfo) -> dict[str, Any]:
         secrets.setdefault("smtp_password", prompt_value("SMTP password / authorization code", "", secret=True))
         secrets.setdefault("smtp_from", prompt_value("SMTP from address", secrets.get("smtp_username", "")))
         secrets.setdefault("deepseek_api_key", prompt_value("DeepSeek API key (optional)", "", secret=True))
-    if deployment_mode == "frp_tunnel":
+    if deployment_mode in {"frp_tunnel", "compute_backend_frp"}:
         tunnel = answers.setdefault("frp_tunnel", {})
         if not args.non_interactive and not args.dry_run:
             tunnel.setdefault("server_host", prompt_value("Public server IP/domain", ""))
-            tunnel.setdefault("deploy_user", prompt_value("SSH deploy user", "deploy-admin"))
-            tunnel.setdefault("ssh_key", prompt_value("SSH private key path", "secrets/public_tunnel/deploy_admin_ed25519"))
+            tunnel.setdefault("server_port", int(prompt_value("frps bind port", "7000")))
+            tunnel.setdefault("remote_port", int(prompt_value("frp remote backend port on public server", "18001")))
             tunnel.setdefault("frp_token", prompt_value("frp token", "", secret=True))
             tunnel.setdefault("public_url", prompt_value("Public URL", "https://<PUBLIC_SERVER_IP>/"))
+            if deployment_mode == "frp_tunnel":
+                tunnel.setdefault("deploy_user", prompt_value("SSH deploy user", "deploy-admin"))
+                tunnel.setdefault("ssh_key", prompt_value("SSH private key path", "secrets/public_tunnel/deploy_admin_ed25519"))
+            if deployment_mode == "compute_backend_frp":
+                tunnel.setdefault("backend_host", prompt_value("Local backend host", "127.0.0.1"))
+                tunnel.setdefault("backend_port", int(prompt_value("Local backend port", "8001")))
+                tunnel.setdefault("proxy_name", prompt_value("frp proxy name", "web-avatar-backend"))
     return answers
 
 
@@ -313,7 +338,7 @@ def build_env(profile: dict[str, Any], answers: dict[str, Any]) -> dict[str, str
     mode = answers.get("deployment_mode", "local_lan")
     env["PERSONA_RAG_DEPLOYMENT_MODE"] = mode
     env["PERSONA_RAG_DEPLOYMENT_PROFILE"] = profile.get("id", "")
-    if mode in {"direct_public_server", "frp_tunnel"}:
+    if mode in {"direct_public_server", "frp_tunnel", "compute_backend_frp"}:
         env["PERSONA_RAG_AUTH_TRUST_PROXY_HEADERS"] = "true"
         env["VITE_API_BASE_URL"] = ""
     public_url = answers.get("frp_tunnel", {}).get("public_url") or answers.get("public_url")
@@ -436,6 +461,8 @@ def required_dependency_ids(answers: dict[str, Any], profile: dict[str, Any]) ->
     if mode == "frp_tunnel":
         required.add("frp")
         required.add("ssh")
+    if mode == "compute_backend_frp":
+        required.add("frp")
     if mode == "direct_public_server":
         required.add("nginx")
     return required
@@ -651,11 +678,17 @@ def start_ollama_if_needed(ollama: str, dry_run: bool) -> None:
     print("Ollama HTTP API is not ready; attempting to start ollama serve.")
     if dry_run:
         return
-    log_dir = ROOT / "models" / "logs"
+    log_dir = LOCAL_STATE_DIR / "logs"
+    pid_dir = LOCAL_STATE_DIR / "pids"
     log_dir.mkdir(parents=True, exist_ok=True)
+    pid_dir.mkdir(parents=True, exist_ok=True)
     stdout = (log_dir / "ollama.out.log").open("a", encoding="utf-8")
     stderr = (log_dir / "ollama.err.log").open("a", encoding="utf-8")
-    subprocess.Popen([ollama, "serve"], cwd=ROOT, stdout=stdout, stderr=stderr)
+    env = os.environ.copy()
+    env.setdefault("OLLAMA_HOST", "127.0.0.1:11434")
+    env.setdefault("OLLAMA_MODELS", str(ROOT / "models" / "ollama"))
+    proc = subprocess.Popen([ollama, "serve"], cwd=ROOT, stdout=stdout, stderr=stderr, env=env)
+    (pid_dir / "ollama.pid").write_text(str(proc.pid), encoding="utf-8")
     for _ in range(20):
         if ollama_ready():
             return
@@ -715,6 +748,8 @@ def pull_ollama_model(ollama: str, model: str, dry_run: bool) -> dict[str, Any]:
 def pull_required_models(models: list[str], answers: dict[str, Any], dry_run: bool) -> list[dict[str, Any]]:
     if not models:
         return []
+    if answers.get("deployment_mode") == "compute_backend_frp":
+        os.environ.setdefault("OLLAMA_MODELS", str(ROOT / "models" / "ollama"))
     ollama = find_ollama_executable(answers)
     if not ollama:
         print("Ollama executable not found. Run portable_deploy.py --install-missing or provide dependencies.paths.ollama.")
@@ -729,6 +764,191 @@ def pull_required_models(models: list[str], answers: dict[str, Any], dry_run: bo
             continue
         results.append(pull_ollama_model(ollama, model, dry_run=dry_run))
     return results
+
+
+def find_frpc_executable(answers: dict[str, Any] | None = None) -> str | None:
+    answers = answers or {}
+    custom = answers.get("dependencies", {}).get("paths", {}).get("frpc") or os.environ.get("PERSONA_RAG_FRPC_EXECUTABLE")
+    if custom and Path(custom).exists():
+        return str(Path(custom))
+    found = shutil.which("frpc")
+    if found:
+        return found
+    executable_name = "frpc.exe" if platform.system().lower().startswith("win") else "frpc"
+    for candidate in (LOCAL_STATE_DIR / "tools").glob(f"**/{executable_name}"):
+        if candidate.exists():
+            return str(candidate)
+    return None
+
+
+def wait_http_ready(url: str, timeout_seconds: int = 60) -> bool:
+    deadline = time.time() + timeout_seconds
+    while time.time() < deadline:
+        try:
+            with urllib.request.urlopen(url, timeout=5) as response:
+                if 200 <= response.status < 500:
+                    return True
+        except Exception:
+            pass
+        time.sleep(1)
+    return False
+
+
+def stop_pid_file(pid_path: Path, dry_run: bool) -> None:
+    if not pid_path.exists():
+        return
+    pid_text = pid_path.read_text(encoding="utf-8", errors="ignore").strip()
+    if not pid_text.isdigit():
+        return
+    if dry_run:
+        print(f"Would stop process from {pid_path}: {pid_text}")
+        return
+    try:
+        if platform.system().lower().startswith("win"):
+            subprocess.run(["taskkill", "/PID", pid_text, "/F"], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        else:
+            subprocess.run(["kill", pid_text], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    finally:
+        pid_path.unlink(missing_ok=True)
+
+
+def run_uv_sync(dry_run: bool) -> None:
+    print("\n== Installing Python dependencies ==")
+    if dry_run:
+        print("$ uv sync")
+        return
+    uv = shutil.which("uv")
+    if not uv:
+        raise RuntimeError("uv was not found after dependency installation.")
+    subprocess.run([uv, "sync"], cwd=ROOT, check=True)
+
+
+def write_frpc_config(answers: dict[str, Any], dry_run: bool) -> Path:
+    tunnel = answers.get("frp_tunnel", {})
+    config_path = LOCAL_STATE_DIR / "frpc-compute-backend.toml"
+    server_host = tunnel.get("server_host")
+    server_port = int(tunnel.get("server_port") or 7000)
+    remote_port = int(tunnel.get("remote_port") or 18001)
+    backend_host = tunnel.get("backend_host") or "127.0.0.1"
+    backend_port = int(tunnel.get("backend_port") or 8001)
+    proxy_name = tunnel.get("proxy_name") or "web-avatar-backend"
+    token = tunnel.get("frp_token") or ""
+    if not server_host or not token:
+        raise RuntimeError("compute_backend_frp requires frp_tunnel.server_host and frp_tunnel.frp_token.")
+    text = "\n".join(
+        [
+            f'serverAddr = "{server_host}"',
+            f"serverPort = {server_port}",
+            "",
+            "[auth]",
+            'method = "token"',
+            f'token = "{token}"',
+            "",
+            "[[proxies]]",
+            f'name = "{proxy_name}"',
+            'type = "tcp"',
+            f'localIP = "{backend_host}"',
+            f"localPort = {backend_port}",
+            f"remotePort = {remote_port}",
+            "",
+        ]
+    )
+    if dry_run:
+        print(f"Would write frpc config to {config_path}")
+        return config_path
+    LOCAL_STATE_DIR.mkdir(parents=True, exist_ok=True)
+    config_path.write_text(text, encoding="utf-8", newline="\n")
+    return config_path
+
+
+def start_backend_process(env: dict[str, str], answers: dict[str, Any], dry_run: bool) -> None:
+    tunnel = answers.get("frp_tunnel", {})
+    backend_host = tunnel.get("backend_host") or "127.0.0.1"
+    backend_port = int(tunnel.get("backend_port") or 8001)
+    health_url = f"http://{backend_host}:{backend_port}/health"
+    if wait_http_ready(health_url, timeout_seconds=3):
+        print(f"Backend is already healthy at {health_url}")
+        return
+    print("\n== Starting backend ==")
+    if dry_run:
+        print(f"$ uv run uvicorn app.backend.main:app --host {backend_host} --port {backend_port}")
+        return
+    pid_dir = LOCAL_STATE_DIR / "pids"
+    log_dir = LOCAL_STATE_DIR / "logs"
+    pid_dir.mkdir(parents=True, exist_ok=True)
+    log_dir.mkdir(parents=True, exist_ok=True)
+    stop_pid_file(pid_dir / "backend.pid", dry_run=False)
+    process_env = os.environ.copy()
+    process_env.update(env)
+    process_env.setdefault("OLLAMA_HOST", "http://127.0.0.1:11434")
+    stdout = (log_dir / "backend.out.log").open("a", encoding="utf-8")
+    stderr = (log_dir / "backend.err.log").open("a", encoding="utf-8")
+    proc = subprocess.Popen(
+        ["uv", "run", "uvicorn", "app.backend.main:app", "--host", backend_host, "--port", str(backend_port)],
+        cwd=ROOT,
+        env=process_env,
+        stdout=stdout,
+        stderr=stderr,
+    )
+    (pid_dir / "backend.pid").write_text(str(proc.pid), encoding="utf-8")
+    if not wait_http_ready(health_url, timeout_seconds=90):
+        raise RuntimeError(f"Backend did not become healthy at {health_url}. Check {log_dir / 'backend.err.log'}")
+    print(f"Backend is healthy at {health_url}")
+
+
+def start_frpc_process(answers: dict[str, Any], dry_run: bool) -> None:
+    print("\n== Starting frpc tunnel ==")
+    frpc = find_frpc_executable(answers)
+    if not frpc:
+        if dry_run:
+            frpc = "frpc"
+        else:
+            raise RuntimeError("frpc executable was not found after dependency installation.")
+    config_path = write_frpc_config(answers, dry_run=dry_run)
+    if dry_run:
+        print(f"$ {frpc} -c {config_path}")
+        return
+    pid_dir = LOCAL_STATE_DIR / "pids"
+    log_dir = LOCAL_STATE_DIR / "logs"
+    pid_dir.mkdir(parents=True, exist_ok=True)
+    log_dir.mkdir(parents=True, exist_ok=True)
+    stop_pid_file(pid_dir / "frpc.pid", dry_run=False)
+    stdout = (log_dir / "frpc.out.log").open("a", encoding="utf-8")
+    stderr = (log_dir / "frpc.err.log").open("a", encoding="utf-8")
+    proc = subprocess.Popen([frpc, "-c", str(config_path)], cwd=ROOT, stdout=stdout, stderr=stderr)
+    (pid_dir / "frpc.pid").write_text(str(proc.pid), encoding="utf-8")
+    time.sleep(5)
+    if proc.poll() is not None:
+        tail = (log_dir / "frpc.err.log").read_text(encoding="utf-8", errors="ignore")[-2000:]
+        raise RuntimeError(f"frpc exited early. stderr tail:\n{tail}")
+    print("frpc process is running.")
+
+
+def verify_public_endpoint(answers: dict[str, Any], dry_run: bool) -> None:
+    public_url = (answers.get("frp_tunnel", {}).get("public_url") or "").rstrip("/")
+    if not public_url:
+        return
+    health_url = f"{public_url}/health"
+    print(f"\n== Verifying public health: {health_url} ==")
+    if dry_run:
+        return
+    if not wait_http_ready(health_url, timeout_seconds=90):
+        raise RuntimeError(f"Public health check failed: {health_url}")
+    print(f"Public health check succeeded: {health_url}")
+
+
+def run_compute_backend_frp(answers: dict[str, Any], profile: dict[str, Any], env: dict[str, str], dry_run: bool) -> None:
+    run_uv_sync(dry_run=dry_run)
+    if profile.get("models") and not dry_run:
+        os.environ.setdefault("OLLAMA_MODELS", str(ROOT / "models" / "ollama"))
+    if profile.get("models"):
+        results = pull_required_models(profile["models"], answers, dry_run=dry_run)
+        failed = [item for item in results if not item.get("ok")]
+        if failed:
+            raise RuntimeError("Model pull failed; switch profile or retry after checking Ollama logs.")
+    start_backend_process(env, answers, dry_run=dry_run)
+    start_frpc_process(answers, dry_run=dry_run)
+    verify_public_endpoint(answers, dry_run=dry_run)
 
 
 def print_dependency_summary(statuses: list[DependencyStatus], required_ids: set[str]) -> None:
@@ -770,6 +990,9 @@ def next_steps(answers: dict[str, Any], profile: dict[str, Any]) -> list[str]:
         if mode == "direct_public_server":
             steps.append("configure Nginx from deploy/public/nginx-web-avatar-direct.conf.example")
             steps.append("configure systemd from deploy/public/web-avatar-backend.service.example")
+        if mode == "compute_backend_frp":
+            steps.append("python scripts/deploy/portable_deploy.py --mode compute_backend_frp --profile standard_gpu --install-missing --pull-models")
+            steps.append("keep the public server running Nginx + frps; this host runs backend/Ollama/frpc only")
     return steps
 
 
@@ -797,7 +1020,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--non-interactive", action="store_true", help="do not prompt; use answers/defaults")
     parser.add_argument("--answers", help="JSON answer file for automated runs")
     parser.add_argument("--profile", choices=["auto", "minimal_cpu", "standard_gpu", "no_model_dev"], help="model profile override")
-    parser.add_argument("--mode", choices=["local_lan", "direct_public_server", "frp_tunnel"], help="deployment mode")
+    parser.add_argument(
+        "--mode",
+        choices=["local_lan", "direct_public_server", "frp_tunnel", "compute_backend_frp"],
+        help="deployment mode",
+    )
     parser.add_argument("--pull-models", action="store_true", help="pull selected Ollama models after writing config")
     args = parser.parse_args(argv)
 
@@ -831,6 +1058,10 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if not missing_required else 1
 
     write_local_files(answers, env, args.dry_run)
+    if answers.get("deployment_mode") == "compute_backend_frp":
+        run_compute_backend_frp(answers, profile, env, dry_run=args.dry_run)
+        return 0
+
     print("\n== Next commands ==")
     for step in next_steps(answers, profile):
         print(step)

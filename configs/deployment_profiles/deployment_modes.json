@@ -14,6 +14,11 @@
       "id": "frp_tunnel",
       "label": "Public frp tunnel deployment",
       "description": "Runs models and backend on the local workstation while a public server provides Nginx HTTPS and frps."
+    },
+    {
+      "id": "compute_backend_frp",
+      "label": "Compute backend with public frp entry",
+      "description": "Runs backend and Ollama on a compute server while an existing public server provides Nginx HTTPS and frps."
     }
   ]
 }
