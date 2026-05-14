@@ -81,6 +81,7 @@ python scripts/deploy/portable_deploy.py --mode frp_tunnel --install-missing
 部署向导会根据机器条件推荐模型配置：
 
 - `standard_gpu`：有 NVIDIA GPU 且显存较充足，默认使用 Qwen3.5 9B。
+- `quick_gpu`：低带宽或首次公网 smoke 推荐，使用 Qwen3.5 0.8B，仍然从公开模型源下载。
 - `minimal_cpu`：没有合适 GPU 时使用，速度较慢。
 - `no_model_dev`：只部署界面和 API，不拉取本地大模型，适合开发或排查环境。
 
@@ -110,7 +111,7 @@ curl http://127.0.0.1:11434/api/tags
 ### 模型下载很慢
 
 部署器会按顺序尝试多个来源，并保留下载进度、速度和 ETA。若所有来源都失败，
-可以先切到 `no_model_dev` 验证部署链路，或者换成更小的模型配置。之后再用
+可以先切到 `quick_gpu` 验证完整小模型链路，或者切到 `no_model_dev` 只验证部署链路。之后再用
 `--pull-models` 单独拉取模型。
 
 ### 端口被占用

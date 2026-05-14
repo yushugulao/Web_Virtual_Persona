@@ -14,7 +14,7 @@ Linux:
 bash scripts/deploy/portable_deploy.sh --mode local_lan
 ```
 
-向导会检测 Python、uv、Node.js、npm、Git、Ollama、NVIDIA GPU、VRAM、Nginx、systemd、SSH 和 frp，然后推荐 `standard_gpu`、`minimal_cpu` 或 `no_model_dev`。
+向导会检测 Python、uv、Node.js、npm、Git、Ollama、NVIDIA GPU、VRAM、Nginx、systemd、SSH 和 frp，然后推荐 `standard_gpu`、`quick_gpu`、`minimal_cpu` 或 `no_model_dev`。
 加上 `--install-missing`（Windows 包装脚本参数为 `-InstallMissing`）后，向导会对缺失依赖生成安装计划，并从官方来源下载安装。下载进度、速度、ETA 和安装结果会显示在终端，安装日志写入 `.deploy/portable/install_report.json`。
 
 ## 部署模式
@@ -91,6 +91,14 @@ Windows:
 
 首次使用前需要安装一次 AutoDL SSH key。完整流程见
 `docs/public/autodl_backend_deployment.md`。
+
+如果公网或算力服务器的模型下载很慢，可以先用 `--profile quick_gpu` 完成真实小模型部署验收：
+
+```bash
+python scripts/deploy/portable_deploy.py --mode compute_backend_frp --profile quick_gpu --install-missing --pull-models
+```
+
+`quick_gpu` 仍然从公开模型源下载并注册模型，不会把其他机器或旧环境里的 Ollama 缓存导入为成功结果。
 
 ## HTTPS
 

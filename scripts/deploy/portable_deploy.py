@@ -277,6 +277,8 @@ def recommend_profile(host: HostInfo, requested: str | None = None) -> str:
     vram = host.gpu.vram_mb or 0
     if host.gpu.available and vram >= 12000 and ram >= 24:
         return "standard_gpu"
+    if host.gpu.available and vram >= 4000 and ram >= 8:
+        return "quick_gpu"
     if ram >= 16:
         return "minimal_cpu"
     return "no_model_dev"
@@ -309,7 +311,7 @@ def collect_answers(args: argparse.Namespace, host: HostInfo) -> dict[str, Any]:
             "local_lan",
         )
     if not args.non_interactive and not profile:
-        profile = prompt_value("Model profile (auto/minimal_cpu/standard_gpu/no_model_dev)", "auto")
+        profile = prompt_value("Model profile (auto/minimal_cpu/quick_gpu/standard_gpu/no_model_dev)", "auto")
     profile = None if profile in {None, "", "auto"} else str(profile)
     selected_profile = recommend_profile(host, profile)
     deployment_mode = deployment_mode or "local_lan"
@@ -1354,6 +1356,7 @@ def next_steps(answers: dict[str, Any], profile: dict[str, Any]) -> list[str]:
             steps.append("configure systemd from deploy/public/web-avatar-backend.service.example")
         if mode == "compute_backend_frp":
             steps.append("python scripts/deploy/portable_deploy.py --mode compute_backend_frp --profile standard_gpu --install-missing --pull-models")
+            steps.append("for a low-bandwidth smoke test, use --profile quick_gpu first; it still downloads from public sources")
             steps.append("keep the public server running Nginx + frps; this host runs backend/Ollama/frpc only")
     return steps
 
@@ -1381,7 +1384,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--yes", action="store_true", help="assume yes for safe installer prompts")
     parser.add_argument("--non-interactive", action="store_true", help="do not prompt; use answers/defaults")
     parser.add_argument("--answers", help="JSON answer file for automated runs")
-    parser.add_argument("--profile", choices=["auto", "minimal_cpu", "standard_gpu", "no_model_dev"], help="model profile override")
+    parser.add_argument("--profile", choices=["auto", "minimal_cpu", "quick_gpu", "standard_gpu", "no_model_dev"], help="model profile override")
     parser.add_argument(
         "--mode",
         choices=["local_lan", "direct_public_server", "frp_tunnel", "compute_backend_frp"],

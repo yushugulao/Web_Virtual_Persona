@@ -1,0 +1,25 @@
+{
+  "id": "quick_gpu",
+  "label": "Quick NVIDIA GPU smoke profile",
+  "description": "Fast deployment smoke profile for GPU machines or low-bandwidth servers. It uses a small Qwen3.5 model so the public deployment path can be validated without importing any existing model cache.",
+  "requirements": {
+    "min_ram_gb": 8,
+    "min_vram_mb": 4000,
+    "requires_nvidia_gpu": false
+  },
+  "models": [
+    "qwen3.5:0.8b",
+    "qwen3-embedding:0.6b"
+  ],
+  "env": {
+    "PERSONA_RAG_GENERATION_MODEL": "qwen3.5:0.8b",
+    "PERSONA_RAG_LOW_GENERATION_MODEL": "qwen3.5:0.8b",
+    "PERSONA_RAG_MEDIUM_GENERATION_MODEL": "qwen3.5:0.8b",
+    "PERSONA_RAG_HIGH_GENERATION_MODEL": "qwen3.5:0.8b",
+    "PERSONA_RAG_LOW_GENERATION_THINKING_BUDGET": "300",
+    "PERSONA_RAG_MEDIUM_GENERATION_THINKING_BUDGET": "900",
+    "PERSONA_RAG_HIGH_GENERATION_THINKING_BUDGET": "1600",
+    "PERSONA_RAG_EMBEDDING_MODEL": "qwen3-embedding:0.6b",
+    "DOCUMENT_READER_ENABLE_MARKER_SURYA": "false"
+  }
+}
