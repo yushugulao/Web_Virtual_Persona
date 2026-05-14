@@ -15,6 +15,7 @@ import queue
 import re
 import shlex
 import shutil
+import ssl
 import subprocess
 import tarfile
 import threading
@@ -1145,11 +1146,14 @@ def find_frpc_executable(answers: dict[str, Any] | None = None) -> str | None:
     return None
 
 
-def wait_http_ready(url: str, timeout_seconds: int = 60) -> bool:
+def wait_http_ready(url: str, timeout_seconds: int = 60, *, allow_self_signed_https: bool = False) -> bool:
     deadline = time.time() + timeout_seconds
+    context = None
+    if allow_self_signed_https and url.lower().startswith("https://"):
+        context = ssl._create_unverified_context()
     while time.time() < deadline:
         try:
-            with urllib.request.urlopen(url, timeout=5) as response:
+            with urllib.request.urlopen(url, timeout=5, context=context) as response:
                 if 200 <= response.status < 500:
                     return True
         except Exception:
@@ -1296,7 +1300,7 @@ def verify_public_endpoint(answers: dict[str, Any], dry_run: bool) -> None:
     print(f"\n== Verifying public health: {health_url} ==")
     if dry_run:
         return
-    if not wait_http_ready(health_url, timeout_seconds=90):
+    if not wait_http_ready(health_url, timeout_seconds=90, allow_self_signed_https=True):
         raise RuntimeError(f"Public health check failed: {health_url}")
     print(f"Public health check succeeded: {health_url}")
 
