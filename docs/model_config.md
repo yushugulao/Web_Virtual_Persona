@@ -12,7 +12,7 @@ qwen3-embedding:0.6b
 部署向导内置四个 profile：
 
 - `standard_gpu`：推荐给 12GB+ VRAM 的 NVIDIA GPU，使用 `qwen3.5:9b` 和 `qwen3-embedding:0.6b`。
-- `quick_gpu`：低带宽或首次公网 smoke 推荐，使用较小的 `qwen3:0.6b` 和 `qwen3-embedding:0.6b`；它仍然从公开模型源下载，不会导入已有 Ollama 缓存。
+- `quick_gpu`：低带宽或首次公网 smoke 推荐，只拉取较小的 `qwen3:0.6b`，并在 smoke 部署中临时复用它做生成与检索向量；它仍然从公开模型源下载，不会导入已有 Ollama 缓存。
 - `minimal_cpu`：给 CPU-only 或低显存机器，使用较轻模型路线，速度较慢。
 - `no_model_dev`：用于 CI、前端和 API 开发，不拉取模型。
 
