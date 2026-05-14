@@ -8,13 +8,17 @@
           "model": "qwen3.5:9b",
           "label": "Ollama registry",
           "timeout_seconds": 180,
-          "stall_timeout_seconds": 90
+          "stall_timeout_seconds": 90,
+          "progress_stall_timeout_seconds": 90
         },
         {
           "kind": "ollama_copy",
           "source_model": "hf.co/unsloth/Qwen3.5-9B-GGUF:Q4_K_M",
           "target_model": "qwen3.5:9b",
-          "label": "Ollama Hugging Face GGUF bridge"
+          "label": "Ollama Hugging Face GGUF bridge",
+          "timeout_seconds": 7200,
+          "stall_timeout_seconds": 240,
+          "progress_stall_timeout_seconds": 600
         },
         {
           "kind": "gguf_import",
@@ -22,6 +26,13 @@
           "filename": "Qwen3.5-9B-Q4_K_M.gguf",
           "target_model": "qwen3.5:9b",
           "label": "Direct Hugging Face GGUF download"
+        },
+        {
+          "kind": "gguf_import",
+          "url": "https://hf-mirror.com/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf",
+          "filename": "Qwen3.5-9B-Q4_K_M.gguf",
+          "target_model": "qwen3.5:9b",
+          "label": "Direct HF mirror GGUF download"
         }
       ]
     },
@@ -33,13 +44,17 @@
           "model": "qwen3:8b",
           "label": "Ollama registry",
           "timeout_seconds": 180,
-          "stall_timeout_seconds": 90
+          "stall_timeout_seconds": 90,
+          "progress_stall_timeout_seconds": 90
         },
         {
           "kind": "ollama_copy",
           "source_model": "hf.co/unsloth/Qwen3-8B-GGUF:Q4_K_M",
           "target_model": "qwen3:8b",
-          "label": "Ollama Hugging Face GGUF bridge"
+          "label": "Ollama Hugging Face GGUF bridge",
+          "timeout_seconds": 7200,
+          "stall_timeout_seconds": 240,
+          "progress_stall_timeout_seconds": 600
         },
         {
           "kind": "gguf_import",
@@ -47,6 +62,13 @@
           "filename": "Qwen3-8B-Q4_K_M.gguf",
           "target_model": "qwen3:8b",
           "label": "Direct Hugging Face GGUF download"
+        },
+        {
+          "kind": "gguf_import",
+          "url": "https://hf-mirror.com/unsloth/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q4_K_M.gguf",
+          "filename": "Qwen3-8B-Q4_K_M.gguf",
+          "target_model": "qwen3:8b",
+          "label": "Direct HF mirror GGUF download"
         }
       ]
     },
@@ -58,13 +80,17 @@
           "model": "qwen3-embedding:0.6b",
           "label": "Ollama registry",
           "timeout_seconds": 180,
-          "stall_timeout_seconds": 90
+          "stall_timeout_seconds": 90,
+          "progress_stall_timeout_seconds": 90
         },
         {
           "kind": "ollama_copy",
           "source_model": "hf.co/Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0",
           "target_model": "qwen3-embedding:0.6b",
-          "label": "Ollama Hugging Face GGUF bridge"
+          "label": "Ollama Hugging Face GGUF bridge",
+          "timeout_seconds": 7200,
+          "stall_timeout_seconds": 240,
+          "progress_stall_timeout_seconds": 600
         },
         {
           "kind": "gguf_import",
@@ -72,6 +98,13 @@
           "filename": "Qwen3-Embedding-0.6B-Q8_0.gguf",
           "target_model": "qwen3-embedding:0.6b",
           "label": "Direct Hugging Face GGUF download"
+        },
+        {
+          "kind": "gguf_import",
+          "url": "https://hf-mirror.com/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/main/Qwen3-Embedding-0.6B-Q8_0.gguf",
+          "filename": "Qwen3-Embedding-0.6B-Q8_0.gguf",
+          "target_model": "qwen3-embedding:0.6b",
+          "label": "Direct HF mirror GGUF download"
         }
       ]
     }

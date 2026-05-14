@@ -37,6 +37,16 @@ GENERATED_ENV = LOCAL_STATE_DIR / "generated.env"
 ANSWERS_PATH = LOCAL_STATE_DIR / "answers.local.json"
 INSTALL_REPORT_PATH = LOCAL_STATE_DIR / "install_report.json"
 OLLAMA_TAGS_URL = "http://127.0.0.1:11434/api/tags"
+OLLAMA_PULL_PROGRESS_RE = re.compile(
+    r"pulling\s+[0-9a-f]+:\s*(?P<percent>\d+)%.*?"
+    r"(?P<done>[0-9.]+)\s*(?P<done_unit>[KMGT]?B)\s*/\s*"
+    r"(?P<total>[0-9.]+)\s*(?P<total_unit>[KMGT]?B)",
+    re.IGNORECASE,
+)
+OLLAMA_PULL_STAGE_PROGRESS_RE = re.compile(
+    r"(verifying sha256 digest|writing manifest|success|removing any unused layers)",
+    re.IGNORECASE,
+)
 
 
 def _prepend_common_user_bins() -> None:
@@ -836,12 +846,35 @@ def installed_ollama_models() -> set[str]:
     return names
 
 
+def bytes_from_ollama_size(value: str, unit: str) -> float:
+    multipliers = {
+        "B": 1,
+        "KB": 1024,
+        "MB": 1024**2,
+        "GB": 1024**3,
+        "TB": 1024**4,
+    }
+    return float(value) * multipliers.get(unit.upper(), 1)
+
+
+def extract_ollama_pull_progress(text: str) -> tuple[int, float] | None:
+    """Return the highest percent/transferred byte pair visible in Ollama pull output."""
+    best: tuple[int, float] | None = None
+    for match in OLLAMA_PULL_PROGRESS_RE.finditer(text):
+        percent = int(match.group("percent"))
+        transferred = bytes_from_ollama_size(match.group("done"), match.group("done_unit"))
+        if best is None or (percent, transferred) > best:
+            best = (percent, transferred)
+    return best
+
+
 def run_ollama_stream(
     args: list[str],
     dry_run: bool,
     *,
     stall_timeout_seconds: int | None = None,
     timeout_seconds: int | None = None,
+    progress_stall_timeout_seconds: int | None = None,
 ) -> dict[str, Any]:
     print("$ " + " ".join(shlex.quote(str(part)) for part in args))
     if dry_run:
@@ -850,6 +883,8 @@ def run_ollama_stream(
         stall_timeout_seconds = int(os.getenv("PERSONA_RAG_MODEL_PULL_STALL_TIMEOUT_SECONDS", "240"))
     if timeout_seconds is None:
         timeout_seconds = int(os.getenv("PERSONA_RAG_MODEL_PULL_TIMEOUT_SECONDS", "7200"))
+    if progress_stall_timeout_seconds is None:
+        progress_stall_timeout_seconds = int(os.getenv("PERSONA_RAG_MODEL_PULL_PROGRESS_STALL_TIMEOUT_SECONDS", "600"))
     proc = subprocess.Popen(
         args,
         cwd=ROOT,
@@ -875,6 +910,10 @@ def run_ollama_stream(
     output_buffer = ""
     started_at = time.monotonic()
     last_output_at = started_at
+    last_progress_at = started_at
+    last_progress_percent = -1
+    last_progress_bytes = -1.0
+    is_pull_command = len(args) >= 2 and Path(str(args[0])).name.startswith("ollama") and args[1] == "pull"
     reader_done = False
     failure_reason: str | None = None
     while True:
@@ -885,15 +924,31 @@ def run_ollama_stream(
         if chunk is None:
             reader_done = True
         elif chunk:
-            last_output_at = time.monotonic()
+            now = time.monotonic()
+            last_output_at = now
             text = chunk.decode("utf-8", errors="replace")
             output_buffer = (output_buffer + text)[-20000:]
             print(text, end="", flush=True)
+            pull_progress = extract_ollama_pull_progress(text)
+            if pull_progress:
+                percent, transferred = pull_progress
+                if percent > last_progress_percent or transferred > last_progress_bytes:
+                    last_progress_percent = percent
+                    last_progress_bytes = transferred
+                    last_progress_at = now
+            elif OLLAMA_PULL_STAGE_PROGRESS_RE.search(text):
+                last_progress_at = now
         now = time.monotonic()
         if proc.poll() is not None and reader_done:
             break
         if timeout_seconds > 0 and now - started_at > timeout_seconds:
             failure_reason = "timeout"
+        elif (
+            is_pull_command
+            and progress_stall_timeout_seconds > 0
+            and now - last_progress_at > progress_stall_timeout_seconds
+        ):
+            failure_reason = "no_progress_timeout"
         elif stall_timeout_seconds > 0 and now - last_output_at > stall_timeout_seconds:
             failure_reason = "no_output_timeout"
         if failure_reason:
@@ -943,6 +998,7 @@ def pull_ollama_model_via_source(ollama: str, model: str, source: dict[str, Any]
     label = source.get("label") or kind
     timeout_seconds = source.get("timeout_seconds")
     stall_timeout_seconds = source.get("stall_timeout_seconds")
+    progress_stall_timeout_seconds = source.get("progress_stall_timeout_seconds")
     print(f"\n== Model source for {model}: {label} ==")
     if kind == "ollama_registry":
         source_model = source.get("model") or model
@@ -951,6 +1007,7 @@ def pull_ollama_model_via_source(ollama: str, model: str, source: dict[str, Any]
             dry_run=dry_run,
             timeout_seconds=timeout_seconds,
             stall_timeout_seconds=stall_timeout_seconds,
+            progress_stall_timeout_seconds=progress_stall_timeout_seconds,
         )
         result.update({"source_kind": kind, "source_model": source_model})
         return result
@@ -962,6 +1019,7 @@ def pull_ollama_model_via_source(ollama: str, model: str, source: dict[str, Any]
             dry_run=dry_run,
             timeout_seconds=timeout_seconds,
             stall_timeout_seconds=stall_timeout_seconds,
+            progress_stall_timeout_seconds=progress_stall_timeout_seconds,
         )
         if not pull_result.get("ok"):
             pull_result.update({"source_kind": kind, "source_model": source_model, "copy_to": target_model})
