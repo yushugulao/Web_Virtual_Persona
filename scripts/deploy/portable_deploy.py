@@ -954,7 +954,7 @@ def run_ollama_stream(
                     last_progress_bytes = transferred
                     last_progress_at = now
                     complete_progress_at = now if percent >= 100 else None
-            elif OLLAMA_PULL_STAGE_PROGRESS_RE.search(text):
+            elif OLLAMA_PULL_STAGE_PROGRESS_RE.search(text) and last_progress_percent < 100:
                 last_progress_at = now
                 complete_progress_at = None
         now = time.monotonic()
