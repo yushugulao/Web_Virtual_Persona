@@ -90,7 +90,10 @@ python scripts/deploy/portable_deploy.py --mode frp_tunnel --install-missing
 python scripts/deploy/portable_deploy.py --profile standard_gpu --pull-models
 ```
 
-模型由 Ollama 管理，向导会列出需要拉取的模型，并显示下载状态。
+模型由 Ollama 管理，向导会列出需要拉取的模型，并显示下载状态。若 Ollama
+官方 registry 下载失败，部署器会继续尝试 `configs/model_sources.json` 中登记的替代
+来源：先试 Ollama 的 Hugging Face GGUF 入口，再试直接下载 GGUF 并通过
+`ollama create` 导入为项目需要的模型名。
 
 ## 常见问题
 
@@ -106,7 +109,9 @@ curl http://127.0.0.1:11434/api/tags
 
 ### 模型下载很慢
 
-可以先切到 `no_model_dev` 验证部署链路，或者换成更小的模型配置。之后再用 `--pull-models` 单独拉取模型。
+部署器会按顺序尝试多个来源，并保留下载进度、速度和 ETA。若所有来源都失败，
+可以先切到 `no_model_dev` 验证部署链路，或者换成更小的模型配置。之后再用
+`--pull-models` 单独拉取模型。
 
 ### 端口被占用
 

@@ -38,8 +38,10 @@ bash scripts/models/pull_required_models.sh
 bash scripts/deploy/portable_deploy.sh --install-missing
 ```
 
-模型拉取过程会显示 Ollama 的下载阶段和进度。若下载失败，可以重新运行模型脚本，
-或重新运行部署向导选择更小的 `minimal_cpu` / `no_model_dev` profile。
+模型拉取过程会显示 Ollama 的下载阶段和进度。若 Ollama registry 下载失败，部署器会继续尝试
+`configs/model_sources.json` 中登记的替代路径：Ollama 的 Hugging Face GGUF 入口，以及直接下载
+GGUF 后用 `ollama create` 导入。若所有来源都失败，可以重新运行模型脚本，或重新运行部署向导
+选择更小的 `minimal_cpu` / `no_model_dev` profile。
 
 `.env` 中常用配置：
 

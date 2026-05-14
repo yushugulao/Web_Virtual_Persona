@@ -28,6 +28,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 PROFILE_DIR = ROOT / "configs" / "deployment_profiles"
 DEPENDENCIES_PATH = ROOT / "configs" / "deployment_dependencies.json"
+MODEL_SOURCES_PATH = ROOT / "configs" / "model_sources.json"
 LOCAL_STATE_DIR = ROOT / ".deploy" / "portable"
 DOWNLOAD_DIR = LOCAL_STATE_DIR / "downloads"
 GENERATED_ENV = LOCAL_STATE_DIR / "generated.env"
@@ -117,6 +118,14 @@ def run_live(args: list[str], dry_run: bool, timeout: int | None = None) -> int:
     if dry_run:
         return 0
     proc = subprocess.run(args, cwd=ROOT, timeout=timeout, check=False)
+    return proc.returncode
+
+
+def run_live_env(args: list[str], dry_run: bool, env: dict[str, str] | None = None, timeout: int | None = None) -> int:
+    print("$ " + " ".join(str(arg) for arg in args))
+    if dry_run:
+        return 0
+    proc = subprocess.run(args, cwd=ROOT, env=env, timeout=timeout, check=False)
     return proc.returncode
 
 
@@ -241,6 +250,12 @@ def load_dependency_registry() -> dict[str, Any]:
     if not DEPENDENCIES_PATH.exists():
         return {"dependencies": []}
     return json.loads(DEPENDENCIES_PATH.read_text(encoding="utf-8"))
+
+
+def load_model_sources() -> dict[str, Any]:
+    if not MODEL_SOURCES_PATH.exists():
+        return {"models": {}}
+    return json.loads(MODEL_SOURCES_PATH.read_text(encoding="utf-8"))
 
 
 def recommend_profile(host: HostInfo, requested: str | None = None) -> str:
@@ -518,12 +533,46 @@ def safe_filename_from_url(url: str, fallback: str) -> str:
     return name or fallback
 
 
+def remote_content_length(url: str) -> int | None:
+    request = urllib.request.Request(url, method="HEAD", headers={"User-Agent": "web-avatar-portable-deploy/1.0"})
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            raw = response.headers.get("Content-Length")
+            return int(raw) if raw and raw.isdigit() else None
+    except Exception:
+        return None
+
+
+def existing_download_is_complete(url: str, destination: Path) -> bool:
+    if not destination.exists() or destination.stat().st_size <= 0:
+        return False
+    expected = remote_content_length(url)
+    if expected is not None:
+        return destination.stat().st_size == expected
+    suffixes = "".join(destination.suffixes).lower()
+    try:
+        if suffixes.endswith(".zip"):
+            return zipfile.is_zipfile(destination)
+        if suffixes.endswith((".tar.gz", ".tgz")):
+            with tarfile.open(destination, "r:gz"):
+                return True
+        if suffixes.endswith(".gguf"):
+            with destination.open("rb") as handle:
+                return handle.read(4) == b"GGUF"
+    except Exception:
+        return False
+    return False
+
+
 def download_file(url: str, destination: Path, dry_run: bool = False, retries: int = 2) -> Path:
     print(f"Download: {url}")
     print(f"Target:   {destination}")
     if dry_run:
         return destination
     destination.parent.mkdir(parents=True, exist_ok=True)
+    if existing_download_is_complete(url, destination):
+        print("Using existing completed download.")
+        return destination
     curl = shutil.which("curl")
     if curl:
         resume_args: list[str] = []
@@ -546,6 +595,9 @@ def download_file(url: str, destination: Path, dry_run: bool = False, retries: i
         ]
         code = run_live(command, dry_run=False)
         if code == 0:
+            return destination
+        if existing_download_is_complete(url, destination):
+            print("curl reported a resume error, but the cached file is complete; using it.")
             return destination
         print("curl download failed; falling back to Python downloader.")
     last_error: Exception | None = None
@@ -782,13 +834,12 @@ def installed_ollama_models() -> set[str]:
     return names
 
 
-def pull_ollama_model(ollama: str, model: str, dry_run: bool) -> dict[str, Any]:
-    print(f"\n== Pulling Ollama model: {model} ==")
+def run_ollama_stream(args: list[str], dry_run: bool) -> dict[str, Any]:
     if dry_run:
-        print(f"$ {ollama} pull {model}")
-        return {"model": model, "ok": True, "dry_run": True}
+        print("$ " + " ".join(args))
+        return {"ok": True, "dry_run": True, "tail": []}
     proc = subprocess.Popen(
-        [ollama, "pull", model],
+        args,
         cwd=ROOT,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -813,8 +864,80 @@ def pull_ollama_model(ollama: str, model: str, dry_run: bool) -> dict[str, Any]:
                     output_tail = output_tail[-20:]
                     print(line)
             break
-    ok = proc.returncode == 0
-    return {"model": model, "ok": ok, "returncode": proc.returncode, "tail": output_tail}
+    return {"ok": proc.returncode == 0, "returncode": proc.returncode, "tail": output_tail}
+
+
+def ollama_tags_contain(model: str) -> bool:
+    return model in installed_ollama_models()
+
+
+def safe_model_dir_name(model: str) -> str:
+    return re.sub(r"[^A-Za-z0-9._-]+", "_", model)
+
+
+def create_ollama_model_from_gguf(ollama: str, target_model: str, gguf_path: Path, dry_run: bool) -> dict[str, Any]:
+    import_dir = LOCAL_STATE_DIR / "model_imports" / safe_model_dir_name(target_model)
+    import_dir.mkdir(parents=True, exist_ok=True)
+    modelfile = import_dir / "Modelfile"
+    modelfile.write_text(f"FROM {gguf_path.as_posix()}\nPARAMETER num_ctx 8192\n", encoding="utf-8")
+    print(f"Importing GGUF into Ollama as {target_model}.")
+    return run_ollama_stream([ollama, "create", target_model, "-f", str(modelfile)], dry_run=dry_run)
+
+
+def pull_ollama_model_via_source(ollama: str, model: str, source: dict[str, Any], dry_run: bool) -> dict[str, Any]:
+    kind = source.get("kind", "ollama_registry")
+    label = source.get("label") or kind
+    print(f"\n== Model source for {model}: {label} ==")
+    if kind == "ollama_registry":
+        source_model = source.get("model") or model
+        result = run_ollama_stream([ollama, "pull", source_model], dry_run=dry_run)
+        result.update({"source_kind": kind, "source_model": source_model})
+        return result
+    if kind == "ollama_copy":
+        source_model = source["source_model"]
+        target_model = source.get("target_model") or model
+        pull_result = run_ollama_stream([ollama, "pull", source_model], dry_run=dry_run)
+        if not pull_result.get("ok"):
+            pull_result.update({"source_kind": kind, "source_model": source_model, "copy_to": target_model})
+            return pull_result
+        copy_result = run_ollama_stream([ollama, "cp", source_model, target_model], dry_run=dry_run)
+        copy_result.update({"source_kind": kind, "source_model": source_model, "copy_to": target_model})
+        return copy_result
+    if kind == "gguf_import":
+        url = source["url"]
+        filename = source.get("filename") or safe_filename_from_url(url, f"{safe_model_dir_name(model)}.gguf")
+        target_model = source.get("target_model") or model
+        gguf_path = DOWNLOAD_DIR / "models" / safe_model_dir_name(model) / filename
+        if dry_run:
+            print(f"Would download GGUF: {url} -> {gguf_path}")
+            print(f"Would run: {ollama} create {target_model} -f <generated Modelfile>")
+            return {"ok": True, "dry_run": True, "source_kind": kind, "url": url}
+        download_file(url, gguf_path, dry_run=False, retries=3)
+        result = create_ollama_model_from_gguf(ollama, target_model, gguf_path, dry_run=False)
+        result.update({"source_kind": kind, "url": url, "file": str(gguf_path)})
+        return result
+    return {"ok": False, "error": f"unsupported_model_source:{kind}", "source_kind": kind}
+
+
+def pull_ollama_model(ollama: str, model: str, dry_run: bool, model_sources: dict[str, Any] | None = None) -> dict[str, Any]:
+    print(f"\n== Pulling Ollama model: {model} ==")
+    if dry_run:
+        sources = (model_sources or {}).get("models", {}).get(model, {}).get("sources") or [{"kind": "ollama_registry", "model": model}]
+        for source in sources:
+            pull_ollama_model_via_source(ollama, model, source, dry_run=True)
+        return {"model": model, "ok": True, "dry_run": True}
+    sources = (model_sources or {}).get("models", {}).get(model, {}).get("sources") or [{"kind": "ollama_registry", "model": model}]
+    attempts: list[dict[str, Any]] = []
+    for index, source in enumerate(sources, start=1):
+        result = pull_ollama_model_via_source(ollama, model, source, dry_run=False)
+        result["attempt"] = index
+        attempts.append(result)
+        if result.get("ok") and ollama_tags_contain(model):
+            return {"model": model, "ok": True, "attempts": attempts, "source": result.get("source_kind")}
+        if result.get("ok") and source.get("kind") == "ollama_registry":
+            return {"model": model, "ok": True, "attempts": attempts, "source": "ollama_registry"}
+        print(f"Model source failed or did not create {model}; trying the next source.")
+    return {"model": model, "ok": False, "attempts": attempts, "error": "all_model_sources_failed"}
 
 
 def pull_required_models(models: list[str], answers: dict[str, Any], dry_run: bool) -> list[dict[str, Any]]:
@@ -828,13 +951,14 @@ def pull_required_models(models: list[str], answers: dict[str, Any], dry_run: bo
         return [{"model": model, "ok": False, "error": "ollama_not_found"} for model in models]
     start_ollama_if_needed(ollama, dry_run)
     installed = installed_ollama_models() if not dry_run else set()
+    model_sources = load_model_sources()
     results = []
     for model in models:
         if model in installed:
             print(f"Model already installed: {model}")
             results.append({"model": model, "ok": True, "skipped": True})
             continue
-        results.append(pull_ollama_model(ollama, model, dry_run=dry_run))
+        results.append(pull_ollama_model(ollama, model, dry_run=dry_run, model_sources=model_sources))
     return results
 
 

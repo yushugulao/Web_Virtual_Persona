@@ -1,0 +1,73 @@
+{
+  "models": {
+    "qwen3.5:9b": {
+      "description": "Primary low/medium/high generation model.",
+      "sources": [
+        {
+          "kind": "ollama_registry",
+          "model": "qwen3.5:9b",
+          "label": "Ollama registry"
+        },
+        {
+          "kind": "ollama_copy",
+          "source_model": "hf.co/unsloth/Qwen3.5-9B-GGUF:Q4_K_M",
+          "target_model": "qwen3.5:9b",
+          "label": "Ollama Hugging Face GGUF bridge"
+        },
+        {
+          "kind": "gguf_import",
+          "url": "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf",
+          "filename": "Qwen3.5-9B-Q4_K_M.gguf",
+          "target_model": "qwen3.5:9b",
+          "label": "Direct Hugging Face GGUF download"
+        }
+      ]
+    },
+    "qwen3:8b": {
+      "description": "Fallback generation model.",
+      "sources": [
+        {
+          "kind": "ollama_registry",
+          "model": "qwen3:8b",
+          "label": "Ollama registry"
+        },
+        {
+          "kind": "ollama_copy",
+          "source_model": "hf.co/unsloth/Qwen3-8B-GGUF:Q4_K_M",
+          "target_model": "qwen3:8b",
+          "label": "Ollama Hugging Face GGUF bridge"
+        },
+        {
+          "kind": "gguf_import",
+          "url": "https://huggingface.co/unsloth/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q4_K_M.gguf",
+          "filename": "Qwen3-8B-Q4_K_M.gguf",
+          "target_model": "qwen3:8b",
+          "label": "Direct Hugging Face GGUF download"
+        }
+      ]
+    },
+    "qwen3-embedding:0.6b": {
+      "description": "Embedding model for retrieval.",
+      "sources": [
+        {
+          "kind": "ollama_registry",
+          "model": "qwen3-embedding:0.6b",
+          "label": "Ollama registry"
+        },
+        {
+          "kind": "ollama_copy",
+          "source_model": "hf.co/Qwen/Qwen3-Embedding-0.6B-GGUF:Q8_0",
+          "target_model": "qwen3-embedding:0.6b",
+          "label": "Ollama Hugging Face GGUF bridge"
+        },
+        {
+          "kind": "gguf_import",
+          "url": "https://huggingface.co/Qwen/Qwen3-Embedding-0.6B-GGUF/resolve/main/Qwen3-Embedding-0.6B-Q8_0.gguf",
+          "filename": "Qwen3-Embedding-0.6B-Q8_0.gguf",
+          "target_model": "qwen3-embedding:0.6b",
+          "label": "Direct Hugging Face GGUF download"
+        }
+      ]
+    }
+  }
+}
