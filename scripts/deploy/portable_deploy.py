@@ -454,10 +454,12 @@ def dependency_statuses(
 
 
 def required_dependency_ids(answers: dict[str, Any], profile: dict[str, Any]) -> set[str]:
-    required = {"uv", "node", "git"}
+    mode = answers.get("deployment_mode", "local_lan")
+    required = {"uv", "git"}
+    if mode in {"local_lan", "direct_public_server", "frp_tunnel"}:
+        required.add("node")
     if profile.get("models"):
         required.add("ollama")
-    mode = answers.get("deployment_mode", "local_lan")
     if mode == "frp_tunnel":
         required.add("frp")
         required.add("ssh")
@@ -521,11 +523,31 @@ def download_file(url: str, destination: Path, dry_run: bool = False, retries: i
     if dry_run:
         return destination
     destination.parent.mkdir(parents=True, exist_ok=True)
+    curl = shutil.which("curl")
+    if curl:
+        command = [
+            curl,
+            "-fL",
+            "--retry",
+            "3",
+            "--retry-delay",
+            "2",
+            "--connect-timeout",
+            "30",
+            "--progress-bar",
+            "-o",
+            str(destination),
+            url,
+        ]
+        code = run_live(command, dry_run=False)
+        if code == 0:
+            return destination
+        print("curl download failed; falling back to Python downloader.")
     last_error: Exception | None = None
     for attempt in range(1, retries + 2):
         try:
             request = urllib.request.Request(url, headers={"User-Agent": "web-avatar-portable-deploy/1.0"})
-            with urllib.request.urlopen(request, timeout=30) as response:
+            with urllib.request.urlopen(request, timeout=180) as response:
                 total = int(response.headers.get("Content-Length") or 0)
                 downloaded = 0
                 start = time.time()
