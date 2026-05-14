@@ -836,12 +836,20 @@ def installed_ollama_models() -> set[str]:
     return names
 
 
-def run_ollama_stream(args: list[str], dry_run: bool) -> dict[str, Any]:
+def run_ollama_stream(
+    args: list[str],
+    dry_run: bool,
+    *,
+    stall_timeout_seconds: int | None = None,
+    timeout_seconds: int | None = None,
+) -> dict[str, Any]:
     print("$ " + " ".join(shlex.quote(str(part)) for part in args))
     if dry_run:
         return {"ok": True, "dry_run": True, "tail": []}
-    stall_timeout_seconds = int(os.getenv("PERSONA_RAG_MODEL_PULL_STALL_TIMEOUT_SECONDS", "240"))
-    timeout_seconds = int(os.getenv("PERSONA_RAG_MODEL_PULL_TIMEOUT_SECONDS", "7200"))
+    if stall_timeout_seconds is None:
+        stall_timeout_seconds = int(os.getenv("PERSONA_RAG_MODEL_PULL_STALL_TIMEOUT_SECONDS", "240"))
+    if timeout_seconds is None:
+        timeout_seconds = int(os.getenv("PERSONA_RAG_MODEL_PULL_TIMEOUT_SECONDS", "7200"))
     proc = subprocess.Popen(
         args,
         cwd=ROOT,
@@ -933,16 +941,28 @@ def create_ollama_model_from_gguf(ollama: str, target_model: str, gguf_path: Pat
 def pull_ollama_model_via_source(ollama: str, model: str, source: dict[str, Any], dry_run: bool) -> dict[str, Any]:
     kind = source.get("kind", "ollama_registry")
     label = source.get("label") or kind
+    timeout_seconds = source.get("timeout_seconds")
+    stall_timeout_seconds = source.get("stall_timeout_seconds")
     print(f"\n== Model source for {model}: {label} ==")
     if kind == "ollama_registry":
         source_model = source.get("model") or model
-        result = run_ollama_stream([ollama, "pull", source_model], dry_run=dry_run)
+        result = run_ollama_stream(
+            [ollama, "pull", source_model],
+            dry_run=dry_run,
+            timeout_seconds=timeout_seconds,
+            stall_timeout_seconds=stall_timeout_seconds,
+        )
         result.update({"source_kind": kind, "source_model": source_model})
         return result
     if kind == "ollama_copy":
         source_model = source["source_model"]
         target_model = source.get("target_model") or model
-        pull_result = run_ollama_stream([ollama, "pull", source_model], dry_run=dry_run)
+        pull_result = run_ollama_stream(
+            [ollama, "pull", source_model],
+            dry_run=dry_run,
+            timeout_seconds=timeout_seconds,
+            stall_timeout_seconds=stall_timeout_seconds,
+        )
         if not pull_result.get("ok"):
             pull_result.update({"source_kind": kind, "source_model": source_model, "copy_to": target_model})
             return pull_result
