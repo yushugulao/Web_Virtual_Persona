@@ -576,7 +576,15 @@ def existing_download_is_complete(url: str, destination: Path) -> bool:
     return False
 
 
-def download_file(url: str, destination: Path, dry_run: bool = False, retries: int = 2) -> Path:
+def download_file(
+    url: str,
+    destination: Path,
+    dry_run: bool = False,
+    retries: int = 2,
+    *,
+    python_fallback: bool = True,
+    max_time_seconds: int | None = None,
+) -> Path:
     print(f"Download: {url}")
     print(f"Target:   {destination}")
     if dry_run:
@@ -600,6 +608,7 @@ def download_file(url: str, destination: Path, dry_run: bool = False, retries: i
             "2",
             "--connect-timeout",
             "30",
+            *(["--max-time", str(max_time_seconds)] if max_time_seconds else []),
             "--progress-bar",
             "-o",
             str(destination),
@@ -611,6 +620,8 @@ def download_file(url: str, destination: Path, dry_run: bool = False, retries: i
         if existing_download_is_complete(url, destination):
             print("curl reported a resume error, but the cached file is complete; using it.")
             return destination
+        if not python_fallback:
+            raise RuntimeError(f"curl failed for {url}; python fallback disabled so the next source can be tried")
         print("curl download failed; falling back to Python downloader.")
     last_error: Exception | None = None
     for attempt in range(1, retries + 2):
@@ -1047,12 +1058,20 @@ def pull_ollama_model_via_source(ollama: str, model: str, source: dict[str, Any]
         url = source["url"]
         filename = source.get("filename") or safe_filename_from_url(url, f"{safe_model_dir_name(model)}.gguf")
         target_model = source.get("target_model") or model
+        download_timeout_seconds = source.get("download_timeout_seconds")
         gguf_path = DOWNLOAD_DIR / "models" / safe_model_dir_name(model) / filename
         if dry_run:
             print(f"Would download GGUF: {url} -> {gguf_path}")
             print(f"Would run: {ollama} create {target_model} -f <generated Modelfile>")
             return {"ok": True, "dry_run": True, "source_kind": kind, "url": url}
-        download_file(url, gguf_path, dry_run=False, retries=3)
+        download_file(
+            url,
+            gguf_path,
+            dry_run=False,
+            retries=3,
+            python_fallback=False,
+            max_time_seconds=download_timeout_seconds,
+        )
         result = create_ollama_model_from_gguf(ollama, target_model, gguf_path, dry_run=False)
         result.update({"source_kind": kind, "url": url, "file": str(gguf_path)})
         return result
@@ -1069,7 +1088,14 @@ def pull_ollama_model(ollama: str, model: str, dry_run: bool, model_sources: dic
     sources = (model_sources or {}).get("models", {}).get(model, {}).get("sources") or [{"kind": "ollama_registry", "model": model}]
     attempts: list[dict[str, Any]] = []
     for index, source in enumerate(sources, start=1):
-        result = pull_ollama_model_via_source(ollama, model, source, dry_run=False)
+        try:
+            result = pull_ollama_model_via_source(ollama, model, source, dry_run=False)
+        except Exception as exc:  # noqa: BLE001 - report and try the next configured source
+            result = {
+                "ok": False,
+                "source_kind": source.get("kind", "ollama_registry"),
+                "error": str(exc),
+            }
         result["attempt"] = index
         attempts.append(result)
         if result.get("ok") and ollama_tags_contain(model):
