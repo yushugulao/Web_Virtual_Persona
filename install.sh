@@ -85,7 +85,9 @@ download_source() {
     wget --progress=bar:force "$url" -O "$archive"
   fi
   local archive_root
+  set +o pipefail
   archive_root="$(tar -tzf "$archive" | head -n 1 | cut -d/ -f1)"
+  set -o pipefail
   tar -xzf "$archive" -C "$tmp_dir"
   local extracted="$tmp_dir/$archive_root"
   if [ -d "$DEST" ] && [ "$REPLACE" = "1" ]; then
