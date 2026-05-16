@@ -242,6 +242,20 @@ function Write-Utf8BomFile([string]$SourcePath, [string]$DestinationPath) {
   [System.IO.File]::WriteAllText($DestinationPath, $text, $utf8Bom)
 }
 
+function Save-RemoteUtf8Script([string]$Url, [string]$DestinationPath) {
+  [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+  $client = New-Object System.Net.WebClient
+  try {
+    $bytes = $client.DownloadData($Url)
+  } finally {
+    $client.Dispose()
+  }
+  $strictUtf8 = New-Object System.Text.UTF8Encoding($false, $true)
+  $text = $strictUtf8.GetString($bytes).TrimStart([char]0xFEFF)
+  $utf8Bom = New-Object System.Text.UTF8Encoding($true)
+  [System.IO.File]::WriteAllText($DestinationPath, $text, $utf8Bom)
+}
+
 function Write-UninstallLauncherExe([string]$OutputPath) {
   if (Test-Path -LiteralPath $OutputPath) {
     Remove-Item -LiteralPath $OutputPath -Force
@@ -309,11 +323,14 @@ function Write-UninstallerPackage($DependencyManifest) {
   $uninstallDir = Join-Path $ProjectRoot ".deploy\uninstall"
   New-Item -ItemType Directory -Force -Path $uninstallDir | Out-Null
   $sourceScript = Join-Path $ProjectRoot "scripts\deploy\windows_uninstall.ps1"
-  if (-not (Test-Path -LiteralPath $sourceScript)) {
-    throw "Uninstall script not found: $sourceScript"
-  }
   $scriptPath = Join-Path $uninstallDir "windows_uninstall.ps1"
-  Write-Utf8BomFile -SourcePath $sourceScript -DestinationPath $scriptPath
+  if (Test-Path -LiteralPath $sourceScript) {
+    Write-Utf8BomFile -SourcePath $sourceScript -DestinationPath $scriptPath
+  } else {
+    $scriptUrl = "https://raw.githubusercontent.com/$Repo/$Branch/scripts/deploy/windows_uninstall.ps1"
+    Write-Host "Downloading uninstaller script from $scriptUrl"
+    Save-RemoteUtf8Script -Url $scriptUrl -DestinationPath $scriptPath
+  }
 
   $manifestPath = Join-Path $uninstallDir "install_manifest.json"
   $manifest = [ordered]@{
