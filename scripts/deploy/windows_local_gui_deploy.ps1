@@ -93,6 +93,13 @@ function Test-ProjectDirectory([string]$Path) {
     (Test-Path -LiteralPath (Join-Path $Path "scripts\deploy"))
 }
 
+function Ensure-ParentDirectory([string]$Path) {
+  $parent = Split-Path -Parent $Path
+  if ($parent -and -not (Test-Path -LiteralPath $parent)) {
+    [System.IO.Directory]::CreateDirectory($parent) | Out-Null
+  }
+}
+
 function Download-ProjectSource {
   if ((Test-ProjectDirectory $ProjectRoot) -and -not $cfg.replace_existing) {
     Write-Host "Using existing project directory: $ProjectRoot"
@@ -131,8 +138,7 @@ function Download-ProjectSource {
       }
     }
     if (-not (Test-Path -LiteralPath $ProjectRoot)) {
-      $parent = Split-Path -Parent $ProjectRoot
-      if ($parent) { New-Item -ItemType Directory -Force -Path $parent | Out-Null }
+      Ensure-ParentDirectory $ProjectRoot
       Move-Item -LiteralPath $extracted.FullName -Destination $ProjectRoot
     }
   } finally {
@@ -253,6 +259,22 @@ function Wait-HttpOk([string]$Uri, [int]$TimeoutSeconds = 90) {
   return $false
 }
 
+function Write-SuccessMarker([string]$FrontendUrl) {
+  $markerDir = Join-Path $ProjectRoot ".deploy\gui"
+  New-Item -ItemType Directory -Force -Path $markerDir | Out-Null
+  $markerPath = Join-Path $markerDir "last_success.json"
+  $marker = [ordered]@{
+    ok = $true
+    frontend_url = $FrontendUrl
+    backend_port = [int]$cfg.backend_port
+    frontend_port = [int]$cfg.frontend_port
+    admin_username = [string]$cfg.admin_username
+    completed_at = (Get-Date).ToString("o")
+  }
+  $marker | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $markerPath -Encoding utf8
+  Write-Host "SUCCESS_MARKER: $markerPath"
+}
+
 function Get-ProfileModels([string]$Profile) {
   $path = Join-Path $ProjectRoot "configs\deployment_profiles\$Profile.json"
   if (-not (Test-Path -LiteralPath $path)) {
@@ -333,8 +355,17 @@ if ($cfg.start_app) {
   if (-not (Wait-HttpOk $frontendUrl 120)) {
     throw "Frontend did not become reachable at $frontendUrl."
   }
+  try {
+    Write-SuccessMarker -FrontendUrl $frontendUrl
+  } catch {
+    Write-Warning "Could not write deployment success marker: $($_.Exception.Message)"
+  }
   if ($cfg.open_browser) {
-    Start-Process $frontendUrl
+    try {
+      Start-Process $frontendUrl
+    } catch {
+      Write-Warning "Could not open browser automatically: $($_.Exception.Message)"
+    }
   }
   Write-Host ""
   Write-Host "Local deployment is ready."
@@ -616,6 +647,122 @@ function Read-CombinedLog {
   return ($parts -join "`r`n")
 }
 
+function Get-SelectedProfileId($ComboBox) {
+  $selected = $ComboBox.SelectedItem
+  if ($selected -and ($selected.PSObject.Properties.Name -contains "Id")) {
+    return [string]$selected.Id
+  }
+  $value = $ComboBox.SelectedValue
+  if ($value -and ($value.PSObject.Properties.Name -contains "Id")) {
+    return [string]$value.Id
+  }
+  return [string]$value
+}
+
+function Test-GuiDeploymentSucceeded([int]$FrontendPort, [string]$ProjectRoot) {
+  if ($ProjectRoot) {
+    $markerPath = Join-Path $ProjectRoot ".deploy\gui\last_success.json"
+    if (Test-Path -LiteralPath $markerPath) {
+      try {
+        $marker = Get-Content -LiteralPath $markerPath -Raw | ConvertFrom-Json
+        if ($marker.ok -or $marker.frontend_url) {
+          return $true
+        }
+      } catch {
+        return $true
+      }
+    }
+  }
+
+  $text = Read-CombinedLog
+  return ($text -match "SUCCESS_MARKER:" -or $text -match "Local deployment is ready\.")
+}
+
+function Show-DeploymentSuccessDialog([string]$FrontendUrl, [string]$Username, [string]$Password, [string]$ProjectRoot) {
+  $dialog = New-Object System.Windows.Forms.Form
+  $dialog.Text = "部署完成"
+  $dialog.StartPosition = "CenterParent"
+  $dialog.Size = New-Object System.Drawing.Size(560, 300)
+  $dialog.FormBorderStyle = "FixedDialog"
+  $dialog.MaximizeBox = $false
+  $dialog.MinimizeBox = $false
+
+  $title = New-Object System.Windows.Forms.Label
+  $title.Text = "部署完成，可以开始使用了"
+  $title.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 13, [System.Drawing.FontStyle]::Bold)
+  $title.Location = New-Object System.Drawing.Point(24, 22)
+  $title.Size = New-Object System.Drawing.Size(500, 30)
+  $dialog.Controls.Add($title)
+
+  $urlLabel = New-Label "浏览器地址" 24 72 90
+  $dialog.Controls.Add($urlLabel)
+  $urlBox = New-Object System.Windows.Forms.TextBox
+  $urlBox.Text = $FrontendUrl
+  $urlBox.Location = New-Object System.Drawing.Point(120, 68)
+  $urlBox.Size = New-Object System.Drawing.Size(390, 24)
+  $urlBox.ReadOnly = $true
+  $dialog.Controls.Add($urlBox)
+
+  $userLabel = New-Label "登录用户" 24 112 90
+  $dialog.Controls.Add($userLabel)
+  $userBox = New-Object System.Windows.Forms.TextBox
+  $userBox.Text = $Username
+  $userBox.Location = New-Object System.Drawing.Point(120, 108)
+  $userBox.Size = New-Object System.Drawing.Size(150, 24)
+  $userBox.ReadOnly = $true
+  $dialog.Controls.Add($userBox)
+
+  $passLabel = New-Label "登录密码" 290 112 90
+  $dialog.Controls.Add($passLabel)
+  $passBox = New-Object System.Windows.Forms.TextBox
+  $passBox.Text = $Password
+  $passBox.Location = New-Object System.Drawing.Point(380, 108)
+  $passBox.Size = New-Object System.Drawing.Size(130, 24)
+  $passBox.ReadOnly = $true
+  $dialog.Controls.Add($passBox)
+
+  $note = New-Object System.Windows.Forms.Label
+  $note.Text = "部署流程已经完成。若已选择启动服务，可以直接打开浏览器；需要排查时可查看部署日志。"
+  $note.Location = New-Object System.Drawing.Point(24, 154)
+  $note.Size = New-Object System.Drawing.Size(500, 36)
+  $dialog.Controls.Add($note)
+
+  $openButton = New-Object System.Windows.Forms.Button
+  $openButton.Text = "打开浏览器"
+  $openButton.Location = New-Object System.Drawing.Point(120, 210)
+  $openButton.Size = New-Object System.Drawing.Size(110, 32)
+  $openButton.Add_Click({
+    try {
+      Start-Process $FrontendUrl
+    } catch {
+      [System.Windows.Forms.MessageBox]::Show("无法自动打开浏览器：$($_.Exception.Message)", "Web虚拟分身") | Out-Null
+    }
+  })
+  $dialog.Controls.Add($openButton)
+
+  $folderButton = New-Object System.Windows.Forms.Button
+  $folderButton.Text = "安装目录"
+  $folderButton.Location = New-Object System.Drawing.Point(250, 210)
+  $folderButton.Size = New-Object System.Drawing.Size(100, 32)
+  $folderButton.Add_Click({
+    if ($ProjectRoot -and (Test-Path -LiteralPath $ProjectRoot)) {
+      Start-Process $ProjectRoot
+    }
+  })
+  $dialog.Controls.Add($folderButton)
+
+  $okButton = New-Object System.Windows.Forms.Button
+  $okButton.Text = "关闭"
+  $okButton.Location = New-Object System.Drawing.Point(370, 210)
+  $okButton.Size = New-Object System.Drawing.Size(90, 32)
+  $okButton.Add_Click({ $dialog.Close() })
+  $dialog.Controls.Add($okButton)
+  $dialog.AcceptButton = $okButton
+  $dialog.CancelButton = $okButton
+
+  [void]$dialog.ShowDialog($form)
+}
+
 $openLogButton.Add_Click({
   if ($script:CurrentLogDir -and (Test-Path -LiteralPath $script:CurrentLogDir)) {
     Start-Process $script:CurrentLogDir
@@ -643,14 +790,16 @@ $timer.Add_Tick({
     $progress.Style = "Blocks"
     $stopButton.Enabled = $false
     $startButton.Enabled = $true
-    if ($exitCode -eq 0) {
+    $installDirForResult = $projectText.Text.Trim()
+    $deploymentSucceeded = ($exitCode -eq 0) -or (Test-GuiDeploymentSucceeded ([int]$frontendPort.Value) $installDirForResult)
+    if ($deploymentSucceeded) {
+      $progress.Value = 100
       $statusLabel.Text = "状态：部署完成"
-      [System.Windows.Forms.MessageBox]::Show(
-        "本地部署完成。浏览器地址：http://127.0.0.1:$($frontendPort.Value)`n登录用户：$($adminUser.Text)`n登录密码：$($adminPassword.Text)",
-        "Web虚拟分身",
-        [System.Windows.Forms.MessageBoxButtons]::OK,
-        [System.Windows.Forms.MessageBoxIcon]::Information
-      ) | Out-Null
+      Show-DeploymentSuccessDialog `
+        -FrontendUrl "http://127.0.0.1:$($frontendPort.Value)" `
+        -Username ($adminUser.Text.Trim()) `
+        -Password ($adminPassword.Text.Trim()) `
+        -ProjectRoot $installDirForResult
     } else {
       $statusLabel.Text = "状态：部署失败，查看日志"
       [System.Windows.Forms.MessageBox]::Show(
@@ -695,6 +844,8 @@ $startButton.Add_Click({
   $script:CurrentErrLog = Join-Path $logDir "local_gui_runner.err.log"
   Write-RunnerScript -Path $runnerPath
   Remove-Item -LiteralPath $script:CurrentOutLog, $script:CurrentErrLog -Force -ErrorAction SilentlyContinue
+  Remove-Item -LiteralPath (Join-Path $installDir ".deploy\gui\last_success.json") -Force -ErrorAction SilentlyContinue
+  $profileIdForConfig = Get-SelectedProfileId $profileCombo
 
   $config = [ordered]@{
     project_root = $installDir
@@ -702,7 +853,7 @@ $startButton.Add_Click({
     branch = $branchText.Text.Trim()
     download_project = [bool]$downloadProject.Checked
     replace_existing = [bool]$replaceExisting.Checked
-    profile = [string]$profileCombo.SelectedValue
+    profile = $profileIdForConfig
     persona_env = [string]$envCombo.SelectedItem
     admin_username = $adminUser.Text.Trim()
     admin_email = $adminEmail.Text.Trim()

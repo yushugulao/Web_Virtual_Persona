@@ -86,7 +86,9 @@ function Download-Source([string]$Target) {
         }
         if (-not (Test-Path -LiteralPath $Target)) {
             $parent = Split-Path -Parent $Target
-            if ($parent) { New-Item -ItemType Directory -Force -Path $parent | Out-Null }
+            if ($parent -and -not (Test-Path -LiteralPath $parent)) {
+                [System.IO.Directory]::CreateDirectory($parent) | Out-Null
+            }
             Move-Item -LiteralPath $extracted.FullName -Destination $Target
         } elseif (-not (Test-ProjectDirectory $Target)) {
             throw "Destination already exists but is not a Web Virtual Persona project. Use -Replace or choose WEB_VIRTUAL_PERSONA_DIR."
@@ -99,14 +101,23 @@ function Download-Source([string]$Target) {
 function Start-LocalGui {
     $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) ("web-avatar-gui-" + [System.Guid]::NewGuid().ToString("N"))
     $guiScript = Join-Path $tempDir "windows_local_gui_deploy.ps1"
-    Write-Step "Downloading small Windows GUI deployment package"
+    $localGuiScript = Join-Path $PSScriptRoot "scripts\deploy\windows_local_gui_deploy.ps1"
+    Write-Step "Preparing small Windows GUI deployment package"
     if ($DryRun) {
-        Write-Host "Would download $GuiScriptUrl"
+        if (Test-Path -LiteralPath $localGuiScript) {
+            Write-Host "Would launch local GUI script $localGuiScript"
+        } else {
+            Write-Host "Would download $GuiScriptUrl"
+        }
         Write-Host "Would launch GUI with default install dir $Destination"
         return
     }
-    New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
-    Save-RemoteUtf8Script -Url $GuiScriptUrl -Path $guiScript
+    if (Test-Path -LiteralPath $localGuiScript) {
+        $guiScript = $localGuiScript
+    } else {
+        New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
+        Save-RemoteUtf8Script -Url $GuiScriptUrl -Path $guiScript
+    }
     $powershell = (Get-Command powershell.exe -ErrorAction SilentlyContinue).Source
     if (-not $powershell) {
         $powershell = (Get-Command powershell -ErrorAction Stop).Source
