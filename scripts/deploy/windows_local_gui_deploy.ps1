@@ -68,6 +68,32 @@ function New-CheckBox([string]$Text, [int]$X, [int]$Y, [bool]$Checked = $true, [
   return $box
 }
 
+function Get-PowerShellExecutable {
+  $candidates = @()
+  if ($PSHOME) {
+    $candidates += (Join-Path $PSHOME "powershell.exe")
+    $candidates += (Join-Path $PSHOME "pwsh.exe")
+  }
+  try {
+    $currentProcess = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
+    if ($currentProcess) { $candidates += $currentProcess }
+  } catch {
+  }
+  if ($env:SystemRoot) {
+    $candidates += (Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe")
+    $candidates += (Join-Path $env:SystemRoot "Sysnative\WindowsPowerShell\v1.0\powershell.exe")
+    $candidates += (Join-Path $env:SystemRoot "SysWOW64\WindowsPowerShell\v1.0\powershell.exe")
+  }
+  foreach ($name in @("powershell.exe", "powershell", "pwsh.exe", "pwsh")) {
+    $cmd = Get-Command $name -ErrorAction SilentlyContinue
+    if ($cmd) { $candidates += $cmd.Source }
+  }
+  foreach ($candidate in ($candidates | Where-Object { $_ } | Select-Object -Unique)) {
+    if (Test-Path -LiteralPath $candidate) { return $candidate }
+  }
+  throw "找不到 PowerShell 可执行文件。请确认 Windows PowerShell 5.1 可用，或修复 PATH 后重试。"
+}
+
 function Write-RunnerScript([string]$Path) {
   $runner = @'
 param(
@@ -99,6 +125,32 @@ function Refresh-Path {
   if ($candidates.Count -gt 0) {
     $env:PATH = (($candidates + ($env:PATH -split ';')) | Select-Object -Unique) -join ';'
   }
+}
+
+function Get-PowerShellExecutable {
+  $candidates = @()
+  if ($PSHOME) {
+    $candidates += (Join-Path $PSHOME "powershell.exe")
+    $candidates += (Join-Path $PSHOME "pwsh.exe")
+  }
+  try {
+    $currentProcess = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
+    if ($currentProcess) { $candidates += $currentProcess }
+  } catch {
+  }
+  if ($env:SystemRoot) {
+    $candidates += (Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe")
+    $candidates += (Join-Path $env:SystemRoot "Sysnative\WindowsPowerShell\v1.0\powershell.exe")
+    $candidates += (Join-Path $env:SystemRoot "SysWOW64\WindowsPowerShell\v1.0\powershell.exe")
+  }
+  foreach ($name in @("powershell.exe", "powershell", "pwsh.exe", "pwsh")) {
+    $cmd = Get-Command $name -ErrorAction SilentlyContinue
+    if ($cmd) { $candidates += $cmd.Source }
+  }
+  foreach ($candidate in ($candidates | Where-Object { $_ } | Select-Object -Unique)) {
+    if (Test-Path -LiteralPath $candidate) { return $candidate }
+  }
+  throw "找不到 PowerShell 可执行文件。请确认 Windows PowerShell 5.1 可用，或修复 PATH 后重试。"
 }
 
 function Has-Command([string]$Name) {
@@ -286,14 +338,8 @@ public static class WebVirtualPersonaUninstallLauncher
             string tempScript = Path.Combine(tempDir, "windows_uninstall.ps1");
             File.Copy(script, tempScript, true);
 
-            string powershell = Environment.ExpandEnvironmentVariables(@"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe");
-            if (!File.Exists(powershell))
-            {
-                powershell = "powershell.exe";
-            }
-
             ProcessStartInfo info = new ProcessStartInfo();
-            info.FileName = powershell;
+            info.FileName = FindPowerShell();
             info.Arguments = "-NoProfile -STA -ExecutionPolicy Bypass -File " + Quote(tempScript) + " -ProjectRoot " + Quote(root) + " -ManifestPath " + Quote(manifest);
             info.UseShellExecute = false;
             info.CreateNoWindow = true;
@@ -308,6 +354,28 @@ public static class WebVirtualPersonaUninstallLauncher
     private static string Quote(string value)
     {
         return "\"" + value.Replace("\"", "\\\"") + "\"";
+    }
+
+    private static string FindPowerShell()
+    {
+        string systemRoot = Environment.GetEnvironmentVariable("SystemRoot");
+        if (String.IsNullOrEmpty(systemRoot))
+        {
+            systemRoot = @"C:\Windows";
+        }
+        string[] candidates = new string[] {
+            Path.Combine(systemRoot, @"System32\WindowsPowerShell\v1.0\powershell.exe"),
+            Path.Combine(systemRoot, @"Sysnative\WindowsPowerShell\v1.0\powershell.exe"),
+            Path.Combine(systemRoot, @"SysWOW64\WindowsPowerShell\v1.0\powershell.exe")
+        };
+        foreach (string candidate in candidates)
+        {
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+        return "powershell.exe";
     }
 }
 "@
@@ -361,7 +429,8 @@ function Ensure-Uv {
     throw "未检测到 uv。请在图形界面勾选[自动安装 uv / Node / Ollama]，或先手动安装 uv 后重试。"
   }
   Step "Installing uv from official Astral installer"
-  powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://astral.sh/uv/install.ps1 | iex"
+  $powershell = Get-PowerShellExecutable
+  & $powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://astral.sh/uv/install.ps1 | iex"
   Refresh-Path
   if (-not (Has-Command "uv")) {
     throw "uv still was not found after installation. Open a new PowerShell window and retry."
@@ -525,14 +594,16 @@ Write-UninstallerPackage $dependencyManifest
 
 if ($cfg.install_project_dependencies) {
   Step "Installing backend and frontend dependencies"
-  & powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup\bootstrap_windows.ps1
+  $powershell = Get-PowerShellExecutable
+  & $powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup\bootstrap_windows.ps1
   if ($LASTEXITCODE -ne 0) { throw "bootstrap_windows.ps1 failed." }
 }
 
 $models = Get-ProfileModels $profileId
 if ($cfg.pull_models -and $models.Count -gt 0) {
   Step "Pulling local models: $($models -join ', ')"
-  & powershell -NoProfile -ExecutionPolicy Bypass -File scripts\models\pull_required_models.ps1 -Models $models
+  $powershell = Get-PowerShellExecutable
+  & $powershell -NoProfile -ExecutionPolicy Bypass -File scripts\models\pull_required_models.ps1 -Models $models
   if ($LASTEXITCODE -ne 0) { throw "pull_required_models.ps1 failed." }
 } elseif ($models.Count -eq 0) {
   Write-Host "No model pull is needed for this profile."
@@ -542,7 +613,8 @@ if ($cfg.pull_models -and $models.Count -gt 0) {
 
 if ($cfg.start_app) {
   Step "Starting local backend and frontend"
-  & powershell -NoProfile -ExecutionPolicy Bypass -File scripts\dev\start_all_windows.ps1 `
+  $powershell = Get-PowerShellExecutable
+  & $powershell -NoProfile -ExecutionPolicy Bypass -File scripts\dev\start_all_windows.ps1 `
     -HostAddress "127.0.0.1" `
     -BackendPort ([int]$cfg.backend_port) `
     -FrontendPort ([int]$cfg.frontend_port)
@@ -1276,8 +1348,9 @@ $startButton.Add_Click({
   $logBox.Text = ""
   $script:LastLogLength = 0
 
+  $powershell = Get-PowerShellExecutable
   $args = "-NoProfile -ExecutionPolicy Bypass -File `"$runnerPath`" -ConfigPath `"$configPath`""
-  $script:RunnerProcess = Start-Process -FilePath "powershell.exe" `
+  $script:RunnerProcess = Start-Process -FilePath $powershell `
     -ArgumentList $args `
     -WorkingDirectory $stateDir `
     -WindowStyle Hidden `

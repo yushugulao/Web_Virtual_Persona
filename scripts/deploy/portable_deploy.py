@@ -152,11 +152,39 @@ def command_info(name: str, version_args: list[str] | None = None) -> CommandInf
     return CommandInfo(name=name, path=path, version=version)
 
 
+def find_powershell_executable() -> str | None:
+    candidates: list[str | None] = []
+    if platform.system().lower().startswith("win"):
+        system_root = os.environ.get("SystemRoot") or r"C:\Windows"
+        candidates.extend(
+            [
+                str(Path(system_root) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"),
+                str(Path(system_root) / "Sysnative" / "WindowsPowerShell" / "v1.0" / "powershell.exe"),
+                str(Path(system_root) / "SysWOW64" / "WindowsPowerShell" / "v1.0" / "powershell.exe"),
+            ]
+        )
+    candidates.extend(
+        [
+            shutil.which("powershell.exe"),
+            shutil.which("powershell"),
+            shutil.which("pwsh.exe"),
+            shutil.which("pwsh"),
+        ]
+    )
+    for candidate in candidates:
+        if candidate and Path(candidate).exists():
+            return candidate
+    return None
+
+
 def detect_ram_gb() -> float | None:
     if platform.system().lower().startswith("win"):
+        powershell = find_powershell_executable()
+        if not powershell:
+            return None
         code, stdout, _ = run_capture(
             [
-                "powershell",
+                powershell,
                 "-NoProfile",
                 "-Command",
                 "(Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory",

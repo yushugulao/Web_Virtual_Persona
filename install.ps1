@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$Repo = $env:WEB_VIRTUAL_PERSONA_REPO,
     [string]$Branch = $env:WEB_VIRTUAL_PERSONA_BRANCH,
     [string]$Destination = $env:WEB_VIRTUAL_PERSONA_DIR,
@@ -38,6 +38,32 @@ function Save-RemoteUtf8Script([string]$Url, [string]$Path) {
     $text = $strictUtf8.GetString($bytes).TrimStart([char]0xFEFF)
     $utf8Bom = New-Object System.Text.UTF8Encoding($true)
     [System.IO.File]::WriteAllText($Path, $text, $utf8Bom)
+}
+
+function Get-PowerShellExecutable {
+    $candidates = @()
+    if ($PSHOME) {
+        $candidates += (Join-Path $PSHOME "powershell.exe")
+        $candidates += (Join-Path $PSHOME "pwsh.exe")
+    }
+    try {
+        $currentProcess = [System.Diagnostics.Process]::GetCurrentProcess().MainModule.FileName
+        if ($currentProcess) { $candidates += $currentProcess }
+    } catch {
+    }
+    if ($env:SystemRoot) {
+        $candidates += (Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe")
+        $candidates += (Join-Path $env:SystemRoot "Sysnative\WindowsPowerShell\v1.0\powershell.exe")
+        $candidates += (Join-Path $env:SystemRoot "SysWOW64\WindowsPowerShell\v1.0\powershell.exe")
+    }
+    foreach ($name in @("powershell.exe", "powershell", "pwsh.exe", "pwsh")) {
+        $cmd = Get-Command $name -ErrorAction SilentlyContinue
+        if ($cmd) { $candidates += $cmd.Source }
+    }
+    foreach ($candidate in ($candidates | Where-Object { $_ } | Select-Object -Unique)) {
+        if (Test-Path -LiteralPath $candidate) { return $candidate }
+    }
+    throw "找不到 PowerShell 可执行文件。请确认 Windows PowerShell 5.1 可用，或修复 PATH 后重试。"
 }
 
 function Test-ProjectDirectory([string]$Path) {
@@ -121,10 +147,7 @@ function Start-LocalGui {
         New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
         Save-RemoteUtf8Script -Url $GuiScriptUrl -Path $guiScript
     }
-    $powershell = (Get-Command powershell.exe -ErrorAction SilentlyContinue).Source
-    if (-not $powershell) {
-        $powershell = (Get-Command powershell -ErrorAction Stop).Source
-    }
+    $powershell = Get-PowerShellExecutable
     $guiArgs = @(
         "-NoProfile",
         "-STA",
