@@ -2,7 +2,32 @@
 
 `Web虚拟分身` 是一个可以在 Windows 或 Linux 上部署的虚拟分身平台。你可以与公开分身对话，也可以上传资料创建自己的分身，并把分身发布到社区中共享。
 
-## 一行快速部署
+## Windows 图形化本地快速部署
+
+在 Windows PowerShell 中运行一行命令即可启动一个很小的图形化部署包。它不会立刻下载完整项目，
+而是先打开窗口，让你选择安装目录、仓库分支和本地配置；点击开始后才下载主项目代码，并在本机
+`127.0.0.1` 启动前端与后端：
+
+```powershell
+powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/yushugulao/Web_Virtual_Persona/main/install.ps1 | iex"
+```
+
+默认安装目录是 `C:\WebVirtualPersona`，也可以直接在图形界面里改。如果想提前指定默认值，可以先设置环境变量：
+
+```powershell
+$env:WEB_VIRTUAL_PERSONA_DIR="$HOME\WebVirtualPersona"
+powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/yushugulao/Web_Virtual_Persona/main/install.ps1 | iex"
+```
+
+图形界面会让你选择安装目录、仓库/分支、覆盖策略、模型配置、管理员账号、端口、Ollama URL、SQLite 路径、可选 DeepSeek/SMTP 配置、是否安装依赖、是否拉取模型，以及是否自动打开浏览器。
+首次体验建议选择 `快速体验：Qwen3 0.6B`，下载小，能更快验证完整链路。完成后访问：
+
+- 前端：`http://127.0.0.1:5173`
+- 后端：`http://127.0.0.1:8000`
+- 默认用户名：`admin`
+- 默认密码：图形界面中填写的管理员密码
+
+## 一行命令行部署
 
 Linux / macOS:
 
@@ -16,7 +41,10 @@ Windows PowerShell:
 powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/yushugulao/Web_Virtual_Persona/main/install.ps1 | iex"
 ```
 
-安装入口会自动下载项目代码，然后启动部署向导。向导会检测你的系统、GPU、内存、磁盘、Python、uv、Node.js、Ollama、frp 等环境，缺什么就提示安装什么，并在下载依赖和模型时显示进度。
+Windows 下该命令默认启动图形化本地部署器。如果需要旧的命令行向导，可设置
+`WEB_VIRTUAL_PERSONA_NO_GUI=1` 后再运行。
+
+Linux / macOS 安装入口会自动下载项目代码，然后启动部署向导。向导会检测你的系统、GPU、内存、磁盘、Python、uv、Node.js、Ollama、frp 等环境，缺什么就提示安装什么，并在下载依赖和模型时显示进度。
 
 ## 部署方式
 

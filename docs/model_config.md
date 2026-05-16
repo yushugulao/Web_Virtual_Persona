@@ -50,7 +50,8 @@ PERSONA_RAG_MODEL_PROVIDER=ollama
 PERSONA_RAG_OLLAMA_BASE_URL=http://127.0.0.1:11434
 PERSONA_RAG_LOW_GENERATION_MODEL=qwen3.5:9b
 PERSONA_RAG_MEDIUM_GENERATION_MODEL=qwen3.5:9b
+PERSONA_RAG_HIGH_GENERATION_MODEL=qwen3.5:9b
 PERSONA_RAG_EMBEDDING_MODEL=qwen3-embedding:0.6b
 ```
 
-高努力模型可以按机器显存自行配置。模型权重不随开源仓库发布。
+高努力模型默认同样使用 `qwen3.5:9b`，主要通过更大的思考预算获得更充分的回答。模型权重不随开源仓库发布。

@@ -1,6 +1,6 @@
 param(
-  [string]$AutodlHost = "connect.bjb2.seetacloud.com",
-  [int]$AutodlPort = 25163,
+  [string]$AutodlHost = $env:PERSONA_RAG_AUTODL_HOST,
+  [int]$AutodlPort = $(if ($env:PERSONA_RAG_AUTODL_PORT) { [int]$env:PERSONA_RAG_AUTODL_PORT } else { 22 }),
   [string]$AutodlUser = "root",
   [string]$IdentityFile = "secrets\autodl_backend\autodl_backend_ed25519",
   [string]$ServerHost = $env:PERSONA_RAG_PUBLIC_SERVER_HOST,
@@ -16,6 +16,9 @@ $ErrorActionPreference = "Stop"
 
 if ([string]::IsNullOrWhiteSpace($ServerHost)) {
   throw "Pass -ServerHost <public-ip-or-domain>, or set PERSONA_RAG_PUBLIC_SERVER_HOST."
+}
+if ([string]::IsNullOrWhiteSpace($AutodlHost)) {
+  throw "Pass -AutodlHost <AUTODL_SSH_HOST>, or set PERSONA_RAG_AUTODL_HOST."
 }
 
 $projectRoot = Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..\..")

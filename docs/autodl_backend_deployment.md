@@ -21,8 +21,8 @@ PowerShell 环境变量里的 root 密码，但不会把密码写入文件：
 ```powershell
 $env:PERSONA_RAG_AUTODL_ROOT_PASSWORD = "<AUTODL_ROOT_PASSWORD>"
 .\scripts\deploy\bootstrap_autodl_backend.ps1 `
-  -AutodlHost connect.bjb2.seetacloud.com `
-  -AutodlPort 25163 `
+  -AutodlHost <AUTODL_SSH_HOST> `
+  -AutodlPort <AUTODL_SSH_PORT> `
   -AutodlUser root `
   -InstallKeyWithPassword
 Remove-Item Env:PERSONA_RAG_AUTODL_ROOT_PASSWORD
@@ -35,8 +35,8 @@ Remove-Item Env:PERSONA_RAG_AUTODL_ROOT_PASSWORD
 ```powershell
 .\scripts\deploy\deploy_public_autodl_demo.ps1 `
   -ServerHost <PUBLIC_SERVER_IP> `
-  -AutodlHost connect.bjb2.seetacloud.com `
-  -AutodlPort 25163 `
+  -AutodlHost <AUTODL_SSH_HOST> `
+  -AutodlPort <AUTODL_SSH_PORT> `
   -AutodlUser root
 ```
 
