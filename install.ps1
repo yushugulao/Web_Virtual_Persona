@@ -24,6 +24,22 @@ function Write-Step([string]$Message) {
     Write-Host "==> $Message"
 }
 
+function Save-RemoteUtf8Script([string]$Url, [string]$Path) {
+    # Windows PowerShell 5.1 treats UTF-8 files without BOM as the local ANSI code page.
+    # GitHub raw serves this script as UTF-8 without BOM, so rewrite it with BOM before -File.
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+    $client = New-Object System.Net.WebClient
+    try {
+        $bytes = $client.DownloadData($Url)
+    } finally {
+        $client.Dispose()
+    }
+    $strictUtf8 = New-Object System.Text.UTF8Encoding($false, $true)
+    $text = $strictUtf8.GetString($bytes)
+    $utf8Bom = New-Object System.Text.UTF8Encoding($true)
+    [System.IO.File]::WriteAllText($Path, $text, $utf8Bom)
+}
+
 function Test-ProjectDirectory([string]$Path) {
     return (Test-Path -LiteralPath (Join-Path $Path "pyproject.toml")) -and
         (Test-Path -LiteralPath (Join-Path $Path "app\frontend\package.json")) -and
@@ -90,7 +106,7 @@ function Start-LocalGui {
         return
     }
     New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
-    Invoke-WebRequest -Uri $GuiScriptUrl -OutFile $guiScript
+    Save-RemoteUtf8Script -Url $GuiScriptUrl -Path $guiScript
     $powershell = (Get-Command powershell.exe -ErrorAction SilentlyContinue).Source
     if (-not $powershell) {
         $powershell = (Get-Command powershell -ErrorAction Stop).Source
