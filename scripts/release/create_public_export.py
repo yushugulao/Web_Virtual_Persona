@@ -23,6 +23,7 @@ COPY_ENTRIES = [
     ".env.linux.example",
     ".gitattributes",
     ".gitignore",
+    "bootstrap.ps1",
     "install.sh",
     "install.ps1",
     "pyproject.toml",

@@ -3,7 +3,7 @@
 本项目在 Windows 上推荐先使用图形化本地部署。运行下面的命令后，会打开部署界面；你可以选择安装目录、模型配置、账号和端口，最后部署到本机 `127.0.0.1`，适合首次体验：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/yushugulao/Web_Virtual_Persona/main/install.ps1 | iex"
+powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/yushugulao/Web_Virtual_Persona/main/bootstrap.ps1 | iex"
 ```
 
 如果需要命令行部署或公网/内网穿透部署，再通过命令行部署工具完成环境检测、模型选择和 `.env` 生成：

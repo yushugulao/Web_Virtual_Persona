@@ -5,14 +5,14 @@
 推荐先使用图形化本地部署。运行下面的命令后，会打开部署界面；你可以选择安装目录、仓库分支、覆盖策略、模型配置、账号、端口、Ollama URL、SQLite 路径、可选 DeepSeek/SMTP 配置，并引导安装 uv、Node.js/npm、Ollama、项目依赖和模型。点击“开始部署”后，系统会下载主项目并启动本地服务。
 
 ```powershell
-powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/yushugulao/Web_Virtual_Persona/main/install.ps1 | iex"
+powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/yushugulao/Web_Virtual_Persona/main/bootstrap.ps1 | iex"
 ```
 
 默认安装目录是 `C:\WebVirtualPersona`，也可以直接在图形界面里修改。如需提前指定默认目录：
 
 ```powershell
 $env:WEB_VIRTUAL_PERSONA_DIR="C:\WebVirtualPersona"
-powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/yushugulao/Web_Virtual_Persona/main/install.ps1 | iex"
+powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/yushugulao/Web_Virtual_Persona/main/bootstrap.ps1 | iex"
 ```
 
 部署完成后会自动打开：
@@ -38,7 +38,7 @@ http://127.0.0.1:5173
 
 ```powershell
 $env:WEB_VIRTUAL_PERSONA_NO_GUI="1"
-powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/yushugulao/Web_Virtual_Persona/main/install.ps1 | iex"
+powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/yushugulao/Web_Virtual_Persona/main/bootstrap.ps1 | iex"
 ```
 
 ## Linux
