@@ -16,7 +16,7 @@ if (-not $Destination) { $Destination = "C:\WebVirtualPersona" }
 if ($env:WEB_VIRTUAL_PERSONA_REPLACE -eq "1") { $Replace = $true }
 if ($env:WEB_VIRTUAL_PERSONA_NO_GUI -eq "1") { $NoGui = $true }
 if (-not $GuiScriptUrl) {
-    $GuiScriptUrl = "https://github.com/$Repo/raw/refs/heads/$Branch/scripts/deploy/windows_local_gui_deploy.ps1"
+    $GuiScriptUrl = "https://raw.githubusercontent.com/$Repo/$Branch/scripts/deploy/windows_local_gui_deploy.ps1"
 }
 
 function Write-Step([string]$Message) {

@@ -9,14 +9,14 @@
 `127.0.0.1` 启动前端与后端：
 
 ```powershell
-powershell -ExecutionPolicy Bypass -Command "irm https://github.com/yushugulao/Web_Virtual_Persona/raw/refs/heads/main/install.ps1 | iex"
+powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/yushugulao/Web_Virtual_Persona/main/install.ps1 | iex"
 ```
 
 默认安装目录是 `C:\WebVirtualPersona`，也可以直接在图形界面里改。如果想提前指定默认值，可以先设置环境变量：
 
 ```powershell
 $env:WEB_VIRTUAL_PERSONA_DIR="$HOME\WebVirtualPersona"
-powershell -ExecutionPolicy Bypass -Command "irm https://github.com/yushugulao/Web_Virtual_Persona/raw/refs/heads/main/install.ps1 | iex"
+powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/yushugulao/Web_Virtual_Persona/main/install.ps1 | iex"
 ```
 
 图形界面会让你选择安装目录、仓库/分支、覆盖策略、模型配置、管理员账号、端口、Ollama URL、SQLite 路径、可选 DeepSeek/SMTP 配置、是否安装依赖、是否拉取模型，以及是否自动打开浏览器。
@@ -38,7 +38,7 @@ curl -fsSL https://raw.githubusercontent.com/yushugulao/Web_Virtual_Persona/main
 Windows PowerShell:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -Command "irm https://github.com/yushugulao/Web_Virtual_Persona/raw/refs/heads/main/install.ps1 | iex"
+powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/yushugulao/Web_Virtual_Persona/main/install.ps1 | iex"
 ```
 
 Windows 下该命令默认启动图形化本地部署器。如果需要旧的命令行向导，可设置
