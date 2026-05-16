@@ -1,4 +1,4 @@
-param(
+﻿param(
   [string]$ProjectRoot = "",
   [string]$DefaultProjectRoot = "",
   [string]$Repo = $env:WEB_VIRTUAL_PERSONA_REPO,
@@ -382,8 +382,8 @@ if ($cfg.start_app) {
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Web虚拟分身 Windows 本地快速部署"
 $form.StartPosition = "CenterScreen"
-$form.Size = New-Object System.Drawing.Size(980, 860)
-$form.MinimumSize = New-Object System.Drawing.Size(940, 780)
+$form.Size = New-Object System.Drawing.Size(980, 940)
+$form.MinimumSize = New-Object System.Drawing.Size(940, 840)
 
 $title = New-Object System.Windows.Forms.Label
 $title.Text = "Web虚拟分身 本地部署向导"
@@ -607,15 +607,48 @@ $statusLabel.Location = New-Object System.Drawing.Point(542, 602)
 $statusLabel.Size = New-Object System.Drawing.Size(380, 24)
 $form.Controls.Add($statusLabel)
 
+$stageLabel = New-Object System.Windows.Forms.Label
+$stageLabel.Text = "当前阶段：等待开始"
+$stageLabel.Location = New-Object System.Drawing.Point(20, 632)
+$stageLabel.Size = New-Object System.Drawing.Size(500, 24)
+$form.Controls.Add($stageLabel)
+
+$stageCountLabel = New-Object System.Windows.Forms.Label
+$stageCountLabel.Text = "总体进度：0/8"
+$stageCountLabel.Location = New-Object System.Drawing.Point(542, 632)
+$stageCountLabel.Size = New-Object System.Drawing.Size(160, 24)
+$form.Controls.Add($stageCountLabel)
+
+$elapsedLabel = New-Object System.Windows.Forms.Label
+$elapsedLabel.Text = "耗时：00:00:00"
+$elapsedLabel.Location = New-Object System.Drawing.Point(720, 632)
+$elapsedLabel.Size = New-Object System.Drawing.Size(200, 24)
+$form.Controls.Add($elapsedLabel)
+
+$detailLabel = New-Object System.Windows.Forms.Label
+$detailLabel.Text = "最近动作：等待开始部署"
+$detailLabel.Location = New-Object System.Drawing.Point(20, 656)
+$detailLabel.Size = New-Object System.Drawing.Size(900, 24)
+$form.Controls.Add($detailLabel)
+
 $progress = New-Object System.Windows.Forms.ProgressBar
-$progress.Location = New-Object System.Drawing.Point(20, 640)
+$progress.Location = New-Object System.Drawing.Point(20, 684)
 $progress.Size = New-Object System.Drawing.Size(920, 16)
 $progress.Style = "Blocks"
+$progress.Minimum = 0
+$progress.Maximum = 100
 $form.Controls.Add($progress)
 
+$stagePanel = New-Object System.Windows.Forms.Panel
+$stagePanel.Location = New-Object System.Drawing.Point(20, 710)
+$stagePanel.Size = New-Object System.Drawing.Size(920, 76)
+$stagePanel.BorderStyle = "FixedSingle"
+$stagePanel.BackColor = [System.Drawing.SystemColors]::Window
+$form.Controls.Add($stagePanel)
+
 $logBox = New-Object System.Windows.Forms.TextBox
-$logBox.Location = New-Object System.Drawing.Point(20, 672)
-$logBox.Size = New-Object System.Drawing.Size(920, 125)
+$logBox.Location = New-Object System.Drawing.Point(20, 798)
+$logBox.Size = New-Object System.Drawing.Size(920, 90)
 $logBox.Multiline = $true
 $logBox.ScrollBars = "Vertical"
 $logBox.ReadOnly = $true
@@ -624,7 +657,7 @@ $form.Controls.Add($logBox)
 
 $hint = New-Object System.Windows.Forms.Label
 $hint.Text = "提示：首次体验建议 quick_gpu。安装目录、仓库分支、端口、账号、模型和可选密钥都可在本窗口修改。"
-$hint.Location = New-Object System.Drawing.Point(20, 804)
+$hint.Location = New-Object System.Drawing.Point(20, 896)
 $hint.Size = New-Object System.Drawing.Size(900, 24)
 $form.Controls.Add($hint)
 
@@ -633,6 +666,28 @@ $script:LastLogLength = 0
 $script:CurrentLogDir = ""
 $script:CurrentOutLog = ""
 $script:CurrentErrLog = ""
+$script:CurrentStageIndex = -1
+$script:DeploymentStartedAt = $null
+$script:ProgressStages = @(
+  [pscustomobject]@{ Key = "download"; Text = "下载项目源码"; Percent = 10; Pattern = "Downloading project source|Using existing project directory" },
+  [pscustomobject]@{ Key = "tools"; Text = "检查/安装工具"; Percent = 25; Pattern = "Checking and installing required tools|Installing uv|Installing Node\.js|Ollama is available|uv is available|Node\.js is available" },
+  [pscustomobject]@{ Key = "config"; Text = "写入本地配置"; Percent = 35; Pattern = "Writing local deployment configuration|Updated portable deployment overrides|portable_deploy\.py" },
+  [pscustomobject]@{ Key = "deps"; Text = "安装项目依赖"; Percent = 55; Pattern = "Installing backend and frontend dependencies|Bootstrap complete|bootstrap_windows\.ps1" },
+  [pscustomobject]@{ Key = "models"; Text = "拉取/确认模型"; Percent = 70; Pattern = "Pulling local models|No model pull is needed|Skipping model pull" },
+  [pscustomobject]@{ Key = "start"; Text = "启动本地服务"; Percent = 85; Pattern = "Starting local backend and frontend|start_all_windows\.ps1|Started backend|Started frontend" },
+  [pscustomobject]@{ Key = "wait"; Text = "等待浏览器端点"; Percent = 95; Pattern = "Waiting for local browser endpoint" },
+  [pscustomobject]@{ Key = "ready"; Text = "部署完成"; Percent = 100; Pattern = "SUCCESS_MARKER:|Local deployment is ready\.|Setup completed\." }
+)
+$script:StageItemLabels = @()
+for ($i = 0; $i -lt $script:ProgressStages.Count; $i++) {
+  $stageItem = New-Object System.Windows.Forms.Label
+  $stageItem.Location = New-Object System.Drawing.Point((8 + 456 * [Math]::Floor($i / 4)), (6 + 17 * ($i % 4)))
+  $stageItem.Size = New-Object System.Drawing.Size(430, 18)
+  $stageItem.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 8.5)
+  $stageItem.Text = ""
+  $stagePanel.Controls.Add($stageItem)
+  $script:StageItemLabels += $stageItem
+}
 
 function Read-CombinedLog {
   $parts = @()
@@ -645,6 +700,103 @@ function Read-CombinedLog {
     }
   }
   return ($parts -join "`r`n")
+}
+
+function Format-StageLine([int]$Index) {
+  $stage = $script:ProgressStages[$Index]
+  if ($Index -lt $script:CurrentStageIndex) {
+    $state = "已完成"
+  } elseif ($Index -eq $script:CurrentStageIndex) {
+    $state = "进行中"
+  } else {
+    $state = "等待中"
+  }
+  return ("{0}. [{1}] {2}" -f ($Index + 1), $state, $stage.Text)
+}
+
+function Render-ProgressStages {
+  for ($i = 0; $i -lt $script:StageItemLabels.Count; $i++) {
+    $label = $script:StageItemLabels[$i]
+    $label.Text = Format-StageLine $i
+    if ($i -lt $script:CurrentStageIndex) {
+      $label.ForeColor = [System.Drawing.Color]::FromArgb(35, 120, 65)
+    } elseif ($i -eq $script:CurrentStageIndex) {
+      $label.ForeColor = [System.Drawing.Color]::FromArgb(25, 90, 170)
+    } else {
+      $label.ForeColor = [System.Drawing.SystemColors]::GrayText
+    }
+  }
+}
+
+function Reset-ProgressView {
+  $script:CurrentStageIndex = -1
+  $script:DeploymentStartedAt = $null
+  $progress.Style = "Blocks"
+  $progress.Value = 0
+  $stageLabel.Text = "当前阶段：等待开始"
+  $stageCountLabel.Text = "总体进度：0/$($script:ProgressStages.Count)"
+  $elapsedLabel.Text = "耗时：00:00:00"
+  $detailLabel.Text = "最近动作：等待开始部署"
+  Render-ProgressStages
+}
+
+function Get-LatestLogDetail([string]$Text) {
+  if (-not $Text) { return "等待部署输出..." }
+  $normalized = $Text -replace "`r`n", "`n" -replace "`r", "`n"
+  $lines = @($normalized -split "`n" | Where-Object { $_.Trim().Length -gt 0 })
+  if ($lines.Count -eq 0) { return "等待部署输出..." }
+  $line = $lines[-1].Trim()
+  if ($line.Length -gt 120) {
+    $line = $line.Substring(0, 117) + "..."
+  }
+  return $line
+}
+
+function Set-ProgressStage([int]$Index, [string]$Detail = "") {
+  if ($Index -lt 0 -or $Index -ge $script:ProgressStages.Count) { return }
+  if ($Index -lt $script:CurrentStageIndex) {
+    if ($Detail) { $detailLabel.Text = "最近动作：$Detail" }
+    return
+  }
+
+  $script:CurrentStageIndex = $Index
+  $stage = $script:ProgressStages[$Index]
+  $progress.Style = "Blocks"
+  $progress.Value = [Math]::Max(0, [Math]::Min(100, [int]$stage.Percent))
+  $stageLabel.Text = "当前阶段：$($stage.Text)"
+  $stageCountLabel.Text = "总体进度：$($Index + 1)/$($script:ProgressStages.Count)"
+  if ($Detail) { $detailLabel.Text = "最近动作：$Detail" }
+  Render-ProgressStages
+}
+
+function Set-ProgressStageByKey([string]$Key, [string]$Detail = "") {
+  for ($i = 0; $i -lt $script:ProgressStages.Count; $i++) {
+    if ($script:ProgressStages[$i].Key -eq $Key) {
+      Set-ProgressStage $i $Detail
+      return
+    }
+  }
+}
+
+function Update-ProgressFromLog([string]$Text) {
+  if ($script:DeploymentStartedAt) {
+    $elapsed = New-TimeSpan -Start $script:DeploymentStartedAt -End (Get-Date)
+    $elapsedLabel.Text = "耗时：{0:hh\:mm\:ss}" -f $elapsed
+  }
+
+  if (-not $Text) { return }
+  $detail = Get-LatestLogDetail $Text
+  $matchedIndex = -1
+  for ($i = 0; $i -lt $script:ProgressStages.Count; $i++) {
+    if ($Text -match $script:ProgressStages[$i].Pattern) {
+      $matchedIndex = $i
+    }
+  }
+  if ($matchedIndex -ge 0) {
+    Set-ProgressStage $matchedIndex $detail
+  } elseif ($script:CurrentStageIndex -ge 0) {
+    $detailLabel.Text = "最近动作：$detail"
+  }
 }
 
 function Get-SelectedProfileId($ComboBox) {
@@ -801,6 +953,7 @@ $timer.Add_Tick({
     $logBox.SelectionStart = $logBox.Text.Length
     $logBox.ScrollToCaret()
   }
+  Update-ProgressFromLog $text
 
   if ($script:RunnerProcess -and $script:RunnerProcess.HasExited) {
     $exitCode = $script:RunnerProcess.ExitCode
@@ -812,7 +965,7 @@ $timer.Add_Tick({
     $installDirForResult = $projectText.Text.Trim()
     $deploymentSucceeded = ($exitCode -eq 0) -or (Test-GuiDeploymentSucceeded ([int]$frontendPort.Value) $installDirForResult)
     if ($deploymentSucceeded) {
-      $progress.Value = 100
+      Set-ProgressStageByKey "ready" "部署完成，已生成本地访问入口。"
       $statusLabel.Text = "状态：部署完成"
       Show-DeploymentSuccessNotice `
         -FrontendUrl "http://127.0.0.1:$($frontendPort.Value)" `
@@ -821,6 +974,8 @@ $timer.Add_Tick({
         -ProjectRoot $installDirForResult
     } else {
       $statusLabel.Text = "状态：部署失败，查看日志"
+      $stageLabel.Text = "当前阶段：部署失败"
+      $detailLabel.Text = "最近动作：请查看下方错误日志或打开日志目录。"
       [System.Windows.Forms.MessageBox]::Show(
         "部署流程退出码：$exitCode。请查看下方日志或日志目录。",
         "Web虚拟分身",
@@ -896,7 +1051,9 @@ $startButton.Add_Click({
   $config | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $configPath -Encoding utf8
 
   $statusLabel.Text = "状态：部署进行中"
-  $progress.Style = "Marquee"
+  Reset-ProgressView
+  $script:DeploymentStartedAt = Get-Date
+  Set-ProgressStageByKey "download" "准备启动部署 runner。"
   $startButton.Enabled = $false
   $stopButton.Enabled = $true
   $logBox.Text = ""
@@ -921,6 +1078,8 @@ $stopButton.Add_Click({
     }
   }
   $statusLabel.Text = "状态：已请求停止"
+  $stageLabel.Text = "当前阶段：已请求停止"
+  $detailLabel.Text = "最近动作：正在停止当前部署 runner。"
 })
 
 $form.Add_FormClosing({
@@ -939,4 +1098,5 @@ $form.Add_FormClosing({
   }
 })
 
+Reset-ProgressView
 [void]$form.ShowDialog()
