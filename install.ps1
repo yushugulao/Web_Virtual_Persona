@@ -101,10 +101,13 @@ function Download-Source([string]$Target) {
 function Start-LocalGui {
     $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) ("web-avatar-gui-" + [System.Guid]::NewGuid().ToString("N"))
     $guiScript = Join-Path $tempDir "windows_local_gui_deploy.ps1"
-    $localGuiScript = Join-Path $PSScriptRoot "scripts\deploy\windows_local_gui_deploy.ps1"
+    $localGuiScript = $null
+    if ($PSScriptRoot) {
+        $localGuiScript = Join-Path $PSScriptRoot "scripts\deploy\windows_local_gui_deploy.ps1"
+    }
     Write-Step "Preparing small Windows GUI deployment package"
     if ($DryRun) {
-        if (Test-Path -LiteralPath $localGuiScript) {
+        if ($localGuiScript -and (Test-Path -LiteralPath $localGuiScript)) {
             Write-Host "Would launch local GUI script $localGuiScript"
         } else {
             Write-Host "Would download $GuiScriptUrl"
@@ -112,7 +115,7 @@ function Start-LocalGui {
         Write-Host "Would launch GUI with default install dir $Destination"
         return
     }
-    if (Test-Path -LiteralPath $localGuiScript) {
+    if ($localGuiScript -and (Test-Path -LiteralPath $localGuiScript)) {
         $guiScript = $localGuiScript
     } else {
         New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
