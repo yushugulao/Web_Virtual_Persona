@@ -50,6 +50,15 @@ function New-Label([string]$Text, [int]$X, [int]$Y, [int]$W = 160, [int]$H = 24)
   return $label
 }
 
+function New-AutoLabel([string]$Text, [int]$X, [int]$Y) {
+  $label = New-Object System.Windows.Forms.Label
+  $label.Text = $Text
+  $label.Location = New-Object System.Drawing.Point($X, $Y)
+  $label.AutoSize = $true
+  $label.AutoEllipsis = $false
+  return $label
+}
+
 function New-CheckBox([string]$Text, [int]$X, [int]$Y, [bool]$Checked = $true, [int]$W = 520) {
   $box = New-Object System.Windows.Forms.CheckBox
   $box.Text = $Text
@@ -397,8 +406,8 @@ if ($cfg.start_app) {
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Web虚拟分身 Windows 本地快速部署"
 $form.StartPosition = "CenterScreen"
-$form.Size = New-Object System.Drawing.Size(980, 940)
-$form.MinimumSize = New-Object System.Drawing.Size(940, 840)
+$form.Size = New-Object System.Drawing.Size(980, 980)
+$form.MinimumSize = New-Object System.Drawing.Size(940, 880)
 $form.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
 $form.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 9)
 
@@ -544,116 +553,116 @@ $runtimeGroup.Controls.AddRange(@($authRequired, $installTools, $installProjectD
 $advancedGroup = New-Object System.Windows.Forms.GroupBox
 $advancedGroup.Text = "高级配置（可留空）"
 $advancedGroup.Location = New-Object System.Drawing.Point(20, 434)
-$advancedGroup.Size = New-Object System.Drawing.Size(920, 145)
+$advancedGroup.Size = New-Object System.Drawing.Size(920, 170)
 $form.Controls.Add($advancedGroup)
 
-$advancedGroup.Controls.Add((New-Label "Ollama" 18 30 96))
+$advancedGroup.Controls.Add((New-AutoLabel "Ollama 地址" 18 32))
 $ollamaUrl = New-Object System.Windows.Forms.TextBox
-$ollamaUrl.Location = New-Object System.Drawing.Point(122, 26)
-$ollamaUrl.Size = New-Object System.Drawing.Size(268, 24)
+$ollamaUrl.Location = New-Object System.Drawing.Point(148, 26)
+$ollamaUrl.Size = New-Object System.Drawing.Size(260, 24)
 $ollamaUrl.Text = "http://127.0.0.1:11434"
 $advancedGroup.Controls.Add($ollamaUrl)
 
-$advancedGroup.Controls.Add((New-Label "数据" 410 30 60))
+$advancedGroup.Controls.Add((New-AutoLabel "数据路径" 430 32))
 $sqlitePath = New-Object System.Windows.Forms.TextBox
-$sqlitePath.Location = New-Object System.Drawing.Point(470, 26)
-$sqlitePath.Size = New-Object System.Drawing.Size(250, 24)
+$sqlitePath.Location = New-Object System.Drawing.Point(520, 26)
+$sqlitePath.Size = New-Object System.Drawing.Size(230, 24)
 $sqlitePath.Text = "data/sqlite/persona_rag.sqlite3"
 $advancedGroup.Controls.Add($sqlitePath)
 
-$advancedGroup.Controls.Add((New-Label "环境" 742 30 48))
+$advancedGroup.Controls.Add((New-AutoLabel "环境" 770 32))
 $envCombo = New-Object System.Windows.Forms.ComboBox
-$envCombo.Location = New-Object System.Drawing.Point(792, 26)
-$envCombo.Size = New-Object System.Drawing.Size(118, 24)
+$envCombo.Location = New-Object System.Drawing.Point(820, 26)
+$envCombo.Size = New-Object System.Drawing.Size(90, 24)
 $envCombo.DropDownStyle = "DropDownList"
 [void]$envCombo.Items.Add("dev")
 [void]$envCombo.Items.Add("prod")
 $envCombo.SelectedItem = "dev"
 $advancedGroup.Controls.Add($envCombo)
 
-$advancedGroup.Controls.Add((New-Label "DeepSeek" 18 66 96))
+$advancedGroup.Controls.Add((New-AutoLabel "DeepSeek 密钥" 18 66))
 $deepseekKey = New-Object System.Windows.Forms.TextBox
-$deepseekKey.Location = New-Object System.Drawing.Point(122, 62)
-$deepseekKey.Size = New-Object System.Drawing.Size(348, 24)
+$deepseekKey.Location = New-Object System.Drawing.Point(148, 60)
+$deepseekKey.Size = New-Object System.Drawing.Size(760, 24)
 $deepseekKey.UseSystemPasswordChar = $true
 $advancedGroup.Controls.Add($deepseekKey)
 
-$advancedGroup.Controls.Add((New-Label "主机" 500 66 60))
+$advancedGroup.Controls.Add((New-AutoLabel "SMTP 主机" 18 100))
 $smtpHost = New-Object System.Windows.Forms.TextBox
-$smtpHost.Location = New-Object System.Drawing.Point(560, 62)
-$smtpHost.Size = New-Object System.Drawing.Size(160, 24)
+$smtpHost.Location = New-Object System.Drawing.Point(148, 94)
+$smtpHost.Size = New-Object System.Drawing.Size(260, 24)
 $advancedGroup.Controls.Add($smtpHost)
 
-$advancedGroup.Controls.Add((New-Label "用户" 742 66 48))
+$advancedGroup.Controls.Add((New-AutoLabel "SMTP 用户" 430 100))
 $smtpUser = New-Object System.Windows.Forms.TextBox
-$smtpUser.Location = New-Object System.Drawing.Point(792, 62)
-$smtpUser.Size = New-Object System.Drawing.Size(118, 24)
+$smtpUser.Location = New-Object System.Drawing.Point(520, 94)
+$smtpUser.Size = New-Object System.Drawing.Size(230, 24)
 $advancedGroup.Controls.Add($smtpUser)
 
-$advancedGroup.Controls.Add((New-Label "发件" 18 102 96))
+$advancedGroup.Controls.Add((New-AutoLabel "SMTP 发件" 18 134))
 $smtpFrom = New-Object System.Windows.Forms.TextBox
-$smtpFrom.Location = New-Object System.Drawing.Point(122, 98)
-$smtpFrom.Size = New-Object System.Drawing.Size(268, 24)
+$smtpFrom.Location = New-Object System.Drawing.Point(148, 128)
+$smtpFrom.Size = New-Object System.Drawing.Size(260, 24)
 $advancedGroup.Controls.Add($smtpFrom)
 
-$advancedGroup.Controls.Add((New-Label "密码" 410 102 60))
+$advancedGroup.Controls.Add((New-AutoLabel "SMTP 密码" 430 134))
 $smtpPassword = New-Object System.Windows.Forms.TextBox
-$smtpPassword.Location = New-Object System.Drawing.Point(470, 98)
-$smtpPassword.Size = New-Object System.Drawing.Size(250, 24)
+$smtpPassword.Location = New-Object System.Drawing.Point(520, 128)
+$smtpPassword.Size = New-Object System.Drawing.Size(230, 24)
 $smtpPassword.UseSystemPasswordChar = $true
 $advancedGroup.Controls.Add($smtpPassword)
 
 $startButton = New-Object System.Windows.Forms.Button
 $startButton.Text = "开始部署"
-$startButton.Location = New-Object System.Drawing.Point(130, 594)
+$startButton.Location = New-Object System.Drawing.Point(130, 624)
 $startButton.Size = New-Object System.Drawing.Size(120, 34)
 $form.Controls.Add($startButton)
 
 $stopButton = New-Object System.Windows.Forms.Button
 $stopButton.Text = "停止当前步骤"
-$stopButton.Location = New-Object System.Drawing.Point(266, 594)
-$stopButton.Size = New-Object System.Drawing.Size(120, 34)
+$stopButton.Location = New-Object System.Drawing.Point(266, 624)
+$stopButton.Size = New-Object System.Drawing.Size(132, 34)
 $stopButton.Enabled = $false
 $form.Controls.Add($stopButton)
 
 $openLogButton = New-Object System.Windows.Forms.Button
 $openLogButton.Text = "打开日志目录"
-$openLogButton.Location = New-Object System.Drawing.Point(402, 594)
-$openLogButton.Size = New-Object System.Drawing.Size(120, 34)
+$openLogButton.Location = New-Object System.Drawing.Point(414, 624)
+$openLogButton.Size = New-Object System.Drawing.Size(150, 34)
 $form.Controls.Add($openLogButton)
 
 $statusLabel = New-Object System.Windows.Forms.Label
 $statusLabel.Text = "状态：等待开始"
-$statusLabel.Location = New-Object System.Drawing.Point(542, 602)
-$statusLabel.Size = New-Object System.Drawing.Size(380, 24)
+$statusLabel.Location = New-Object System.Drawing.Point(584, 632)
+$statusLabel.Size = New-Object System.Drawing.Size(336, 24)
 $form.Controls.Add($statusLabel)
 
 $stageLabel = New-Object System.Windows.Forms.Label
 $stageLabel.Text = "当前阶段：等待开始"
-$stageLabel.Location = New-Object System.Drawing.Point(20, 632)
+$stageLabel.Location = New-Object System.Drawing.Point(20, 662)
 $stageLabel.Size = New-Object System.Drawing.Size(500, 24)
 $form.Controls.Add($stageLabel)
 
 $stageCountLabel = New-Object System.Windows.Forms.Label
 $stageCountLabel.Text = "总体进度：0/8"
-$stageCountLabel.Location = New-Object System.Drawing.Point(542, 632)
+$stageCountLabel.Location = New-Object System.Drawing.Point(542, 662)
 $stageCountLabel.Size = New-Object System.Drawing.Size(160, 24)
 $form.Controls.Add($stageCountLabel)
 
 $elapsedLabel = New-Object System.Windows.Forms.Label
 $elapsedLabel.Text = "耗时：00:00:00"
-$elapsedLabel.Location = New-Object System.Drawing.Point(720, 632)
+$elapsedLabel.Location = New-Object System.Drawing.Point(720, 662)
 $elapsedLabel.Size = New-Object System.Drawing.Size(200, 24)
 $form.Controls.Add($elapsedLabel)
 
 $detailLabel = New-Object System.Windows.Forms.Label
 $detailLabel.Text = "最近动作：等待开始部署"
-$detailLabel.Location = New-Object System.Drawing.Point(20, 656)
+$detailLabel.Location = New-Object System.Drawing.Point(20, 686)
 $detailLabel.Size = New-Object System.Drawing.Size(900, 24)
 $form.Controls.Add($detailLabel)
 
 $progress = New-Object System.Windows.Forms.ProgressBar
-$progress.Location = New-Object System.Drawing.Point(20, 684)
+$progress.Location = New-Object System.Drawing.Point(20, 714)
 $progress.Size = New-Object System.Drawing.Size(920, 16)
 $progress.Style = "Blocks"
 $progress.Minimum = 0
@@ -661,14 +670,14 @@ $progress.Maximum = 100
 $form.Controls.Add($progress)
 
 $stagePanel = New-Object System.Windows.Forms.Panel
-$stagePanel.Location = New-Object System.Drawing.Point(20, 710)
+$stagePanel.Location = New-Object System.Drawing.Point(20, 740)
 $stagePanel.Size = New-Object System.Drawing.Size(920, 76)
 $stagePanel.BorderStyle = "FixedSingle"
 $stagePanel.BackColor = [System.Drawing.SystemColors]::Window
 $form.Controls.Add($stagePanel)
 
 $logBox = New-Object System.Windows.Forms.TextBox
-$logBox.Location = New-Object System.Drawing.Point(20, 798)
+$logBox.Location = New-Object System.Drawing.Point(20, 828)
 $logBox.Size = New-Object System.Drawing.Size(920, 90)
 $logBox.Multiline = $true
 $logBox.ScrollBars = "Vertical"
@@ -678,7 +687,7 @@ $form.Controls.Add($logBox)
 
 $hint = New-Object System.Windows.Forms.Label
 $hint.Text = "提示：首次体验建议 quick_gpu。安装目录、仓库分支、端口、账号、模型和可选密钥都可在本窗口修改。"
-$hint.Location = New-Object System.Drawing.Point(20, 896)
+$hint.Location = New-Object System.Drawing.Point(20, 926)
 $hint.Size = New-Object System.Drawing.Size(900, 24)
 $form.Controls.Add($hint)
 
