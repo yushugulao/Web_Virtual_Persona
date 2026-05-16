@@ -50,10 +50,10 @@ function Download-Source([string]$Target) {
     $url = "https://codeload.github.com/$Repo/zip/refs/heads/$Branch"
     $temp = Join-Path ([System.IO.Path]::GetTempPath()) ("web-avatar-source-" + [System.Guid]::NewGuid().ToString("N"))
     $zipPath = Join-Path $temp "source.zip"
-    Write-Step "Downloading Web Virtual Persona source from $Repo@$Branch"
+    Write-Step "Downloading project files from $Repo@$Branch"
     if ($DryRun) {
-        Write-Host "Would download $url"
-        Write-Host "Would extract into $Target"
+        Write-Host "Would download project files."
+        Write-Host "Install directory: $Target"
         return
     }
 
@@ -105,14 +105,14 @@ function Start-LocalGui {
     if ($PSScriptRoot) {
         $localGuiScript = Join-Path $PSScriptRoot "scripts\deploy\windows_local_gui_deploy.ps1"
     }
-    Write-Step "Preparing small Windows GUI deployment package"
+    Write-Step "Opening Windows graphical deployment"
     if ($DryRun) {
         if ($localGuiScript -and (Test-Path -LiteralPath $localGuiScript)) {
-            Write-Host "Would launch local GUI script $localGuiScript"
+            Write-Host "Would open the graphical deployment window from local files."
         } else {
-            Write-Host "Would download $GuiScriptUrl"
+            Write-Host "Would download the graphical deployment window."
         }
-        Write-Host "Would launch GUI with default install dir $Destination"
+        Write-Host "Default install directory: $Destination"
         return
     }
     if ($localGuiScript -and (Test-Path -LiteralPath $localGuiScript)) {
@@ -141,11 +141,11 @@ function Start-LocalGui {
 function Start-CommandLineWizard {
     Download-Source -Target $Destination
     if ($DryRun) { return }
-    Write-Step "Starting command-line deployment wizard"
+    Write-Step "Starting command-line deployment"
     Set-Location -LiteralPath $Destination
     $python = Get-Command python -ErrorAction SilentlyContinue
     if (-not $python) {
-        throw "Python was not found. Re-run without -NoGui to use the Windows GUI installer, or install Python 3.11+ first."
+        throw "Python was not found. Use the graphical deployment command, or install Python 3.11+ before using command-line deployment."
     }
     & $python.Source scripts/deploy/portable_deploy.py --mode local_lan
 }

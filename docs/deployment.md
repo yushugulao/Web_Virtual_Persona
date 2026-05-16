@@ -1,13 +1,12 @@
 # 部署指南
 
-本项目在 Windows 上推荐先使用图形化本地快速部署器。它只下载一个小启动包，打开 GUI 后再由用户选择安装目录和配置，最后部署到本机
-`127.0.0.1`，适合首次体验：
+本项目在 Windows 上推荐先使用图形化本地部署。运行下面的命令后，会打开部署界面；你可以选择安装目录、模型配置、账号和端口，最后部署到本机 `127.0.0.1`，适合首次体验：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/yushugulao/Web_Virtual_Persona/main/install.ps1 | iex"
 ```
 
-如果需要命令行部署或公网/内网穿透部署，再通过部署向导完成环境检测、模型选择和 `.env` 生成：
+如果需要命令行部署或公网/内网穿透部署，再通过命令行部署工具完成环境检测、模型选择和 `.env` 生成：
 
 Windows:
 
@@ -21,8 +20,8 @@ Linux:
 bash scripts/deploy/portable_deploy.sh --mode local_lan
 ```
 
-向导会检测 Python、uv、Node.js、npm、Git、Ollama、NVIDIA GPU、VRAM、Nginx、systemd、SSH 和 frp，然后推荐 `standard_gpu`、`quick_gpu`、`minimal_cpu` 或 `no_model_dev`。
-加上 `--install-missing`（Windows 包装脚本参数为 `-InstallMissing`）后，向导会对缺失依赖生成安装计划，并从官方来源下载安装。下载进度、速度、ETA 和安装结果会显示在终端，安装日志写入 `.deploy/portable/install_report.json`。
+命令行部署工具会检测 Python、uv、Node.js、npm、Git、Ollama、NVIDIA GPU、VRAM、Nginx、systemd、SSH 和 frp，然后推荐 `standard_gpu`、`quick_gpu`、`minimal_cpu` 或 `no_model_dev`。
+加上 `--install-missing`（Windows 包装脚本参数为 `-InstallMissing`）后，它会对缺失依赖生成安装计划，并从官方来源下载安装。下载进度、速度、ETA 和安装结果会显示在终端，安装日志写入 `.deploy/portable/install_report.json`。
 
 ## 部署模式
 
@@ -46,7 +45,7 @@ bash scripts/dev/start_all_linux.sh
 
 ### 公网服务器直接部署
 
-适合资源足够的 Linux 服务器。服务器需要能运行本地模型，建议至少 24GB 内存，最好有 NVIDIA GPU。向导会生成本地 `.env` 覆盖项，并给出 Nginx / systemd 后续命令。
+适合资源足够的 Linux 服务器。服务器需要能运行本地模型，建议至少 24GB 内存，最好有 NVIDIA GPU。部署工具会生成本地 `.env` 覆盖项，并给出 Nginx / systemd 后续命令。
 
 ```bash
 bash scripts/deploy/portable_deploy.sh --mode direct_public_server

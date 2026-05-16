@@ -4,9 +4,9 @@
 
 ## Windows 图形化本地快速部署
 
-在 Windows PowerShell 中运行一行命令即可启动一个很小的图形化部署包。它不会立刻下载完整项目，
-而是先打开窗口，让你选择安装目录、仓库分支和本地配置；点击开始后才下载主项目代码，并在本机
-`127.0.0.1` 启动前端与后端：
+在 Windows PowerShell 中运行以下命令，会打开图形化本地部署界面。你可以在界面中选择安装目录、
+仓库分支、模型配置、账号和端口；点击“开始部署”后，系统会下载项目并在本机 `127.0.0.1`
+启动前端与后端：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/yushugulao/Web_Virtual_Persona/main/install.ps1 | iex"
@@ -27,7 +27,7 @@ powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.c
 - 默认用户名：`admin`
 - 默认密码：图形界面中填写的管理员密码
 
-## 一行命令行部署
+## 命令行部署入口
 
 Linux / macOS:
 
@@ -41,14 +41,14 @@ Windows PowerShell:
 powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/yushugulao/Web_Virtual_Persona/main/install.ps1 | iex"
 ```
 
-Windows 下该命令默认启动图形化本地部署器。如果需要旧的命令行向导，可设置
+Windows 下该命令默认打开图形化本地部署界面。如果需要命令行部署，可设置
 `WEB_VIRTUAL_PERSONA_NO_GUI=1` 后再运行。
 
-Linux / macOS 安装入口会自动下载项目代码，然后启动部署向导。向导会检测你的系统、GPU、内存、磁盘、Python、uv、Node.js、Ollama、frp 等环境，缺什么就提示安装什么，并在下载依赖和模型时显示进度。
+Linux / macOS 安装入口会自动下载项目代码，然后启动命令行部署工具。它会检测你的系统、GPU、内存、磁盘、Python、uv、Node.js、Ollama、frp 等环境，缺什么就提示安装什么，并在下载依赖和模型时显示进度。
 
 ## 部署方式
 
-部署向导会让你选择一种运行方式。
+部署工具会让你选择一种运行方式。
 
 ### 本机 / 局域网部署
 
@@ -72,7 +72,7 @@ python scripts/deploy/portable_deploy.py --mode local_lan --install-missing
 python scripts/deploy/portable_deploy.py --mode direct_public_server --install-missing
 ```
 
-如果服务器只有公网 IP，没有域名，向导会提示使用自签 HTTPS；如果有域名，建议接入正式证书。
+如果服务器只有公网 IP，没有域名，部署工具会提示使用自签 HTTPS；如果有域名，建议接入正式证书。
 
 ### 算力服务器后端 + 公网入口部署
 
@@ -86,7 +86,7 @@ python scripts/deploy/portable_deploy.py \
   --pull-models
 ```
 
-向导会要求你填写：
+部署工具会要求你填写：
 
 - 公网服务器地址或域名
 - frps 端口
@@ -106,7 +106,7 @@ python scripts/deploy/portable_deploy.py --mode frp_tunnel --install-missing
 
 ## 模型选择
 
-部署向导会根据机器条件推荐模型配置：
+部署工具会根据机器条件推荐模型配置：
 
 - `standard_gpu`：有 NVIDIA GPU 且显存较充足，默认使用 Qwen3.5 9B。
 - `quick_gpu`：低带宽或首次公网 smoke 推荐，使用紧凑 Qwen3 0.6B，仍然从公开模型源下载。
@@ -119,7 +119,7 @@ python scripts/deploy/portable_deploy.py --mode frp_tunnel --install-missing
 python scripts/deploy/portable_deploy.py --profile standard_gpu --pull-models
 ```
 
-模型由 Ollama 管理，向导会列出需要拉取的模型，并显示下载状态。若 Ollama
+模型由 Ollama 管理，部署工具会列出需要拉取的模型，并显示下载状态。若 Ollama
 官方 registry 下载失败，部署器会继续尝试 `configs/model_sources.json` 中登记的替代
 来源：先试 Ollama 的 Hugging Face GGUF 入口，再试直接下载 GGUF 并通过
 `ollama create` 导入为项目需要的模型名。
@@ -134,7 +134,7 @@ python scripts/deploy/portable_deploy.py --profile standard_gpu --pull-models
 curl http://127.0.0.1:11434/api/tags
 ```
 
-如果失败，重新运行部署向导并选择安装/启动 Ollama。
+如果失败，重新运行部署工具并选择安装/启动 Ollama。
 
 ### 模型下载很慢
 

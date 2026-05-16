@@ -181,7 +181,7 @@ function Ensure-Uv {
     return
   }
   if (-not $cfg.install_tools) {
-    throw "uv is missing. Enable dependency installation in the GUI or install uv manually."
+    throw "未检测到 uv。请在图形界面勾选[自动安装 uv / Node / Ollama]，或先手动安装 uv 后重试。"
   }
   Step "Installing uv from official Astral installer"
   powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://astral.sh/uv/install.ps1 | iex"
@@ -199,7 +199,7 @@ function Ensure-Node {
     return
   }
   if (-not $cfg.install_tools) {
-    throw "Node.js/npm is missing. Enable dependency installation in the GUI or install Node.js LTS manually."
+    throw "未检测到 Node.js/npm。请在图形界面勾选[自动安装 uv / Node / Ollama]，或先手动安装 Node.js LTS 后重试。"
   }
   Step "Installing Node.js LTS through winget"
   Require-Winget
@@ -222,7 +222,7 @@ function Ensure-Ollama {
     return
   }
   if (-not $cfg.install_tools) {
-    throw "Ollama is missing. Enable dependency installation in the GUI or install Ollama manually."
+    throw "未检测到 Ollama。请在图形界面勾选[自动安装 uv / Node / Ollama]，或先手动安装 Ollama 后重试。"
   }
   Step "Downloading official Ollama Windows installer"
   $downloadDir = Join-Path $ProjectRoot ".deploy\gui\downloads"
@@ -354,7 +354,7 @@ if ($cfg.pull_models -and $models.Count -gt 0) {
 } elseif ($models.Count -eq 0) {
   Write-Host "No model pull is needed for this profile."
 } else {
-  Write-Host "Skipping model pull because the GUI option is disabled."
+  Write-Host "已跳过模型拉取：图形界面中未勾选[拉取所选模型]。"
 }
 
 if ($cfg.start_app) {
@@ -403,14 +403,14 @@ $form.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
 $form.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 9)
 
 $title = New-Object System.Windows.Forms.Label
-$title.Text = "Web虚拟分身 本地部署向导"
+$title.Text = "Web虚拟分身 本地部署"
 $title.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 15, [System.Drawing.FontStyle]::Bold)
 $title.Location = New-Object System.Drawing.Point(20, 16)
 $title.Size = New-Object System.Drawing.Size(560, 32)
 $form.Controls.Add($title)
 
 $subtitle = New-Object System.Windows.Forms.Label
-$subtitle.Text = "一行命令只启动这个小向导；选择安装目录和配置后，向导再下载主项目并启动本地浏览器。"
+$subtitle.Text = "选择安装目录和运行配置，点击[开始部署]后会自动下载项目、安装依赖并启动本地服务。"
 $subtitle.Location = New-Object System.Drawing.Point(22, 52)
 $subtitle.Size = New-Object System.Drawing.Size(880, 24)
 $form.Controls.Add($subtitle)

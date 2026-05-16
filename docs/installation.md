@@ -2,26 +2,26 @@
 
 ## Windows
 
-推荐先使用图形化本地快速部署。一行命令只下载小型启动包和 GUI 脚本；GUI 打开后，你可以选择安装目录、仓库分支、覆盖策略、模型配置、账号、端口、Ollama URL、SQLite 路径、可选 DeepSeek/SMTP 配置，并引导安装 uv、Node.js/npm、Ollama、项目依赖和模型。主项目代码会在你点击开始后才下载。
+推荐先使用图形化本地部署。运行下面的命令后，会打开部署界面；你可以选择安装目录、仓库分支、覆盖策略、模型配置、账号、端口、Ollama URL、SQLite 路径、可选 DeepSeek/SMTP 配置，并引导安装 uv、Node.js/npm、Ollama、项目依赖和模型。点击“开始部署”后，系统会下载主项目并启动本地服务。
 
 ```powershell
 powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/yushugulao/Web_Virtual_Persona/main/install.ps1 | iex"
 ```
 
-默认安装目录是 `C:\WebVirtualPersona`，也可以直接在 GUI 里修改。如需提前指定默认目录：
+默认安装目录是 `C:\WebVirtualPersona`，也可以直接在图形界面里修改。如需提前指定默认目录：
 
 ```powershell
 $env:WEB_VIRTUAL_PERSONA_DIR="C:\WebVirtualPersona"
 powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/yushugulao/Web_Virtual_Persona/main/install.ps1 | iex"
 ```
 
-GUI 完成后会自动打开：
+部署完成后会自动打开：
 
 ```text
 http://127.0.0.1:5173
 ```
 
-登录用户名是 `admin`，密码是 GUI 中填写的管理员密码。
+登录用户名是 `admin`，密码是图形界面中填写的管理员密码。
 
 也可以使用原命令行流程：
 
@@ -32,7 +32,7 @@ http://127.0.0.1:5173
 .\scripts\dev\start_all_windows.ps1
 ```
 
-如果从一行安装入口启动但想使用命令行向导：
+如果想使用命令行部署：
 
 ```powershell
 $env:WEB_VIRTUAL_PERSONA_NO_GUI="1"
@@ -42,7 +42,7 @@ powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.c
 ## Linux
 
 1. 安装 Python 3.11+。
-2. 运行部署向导检测机器。若缺少 uv、Node.js、Git、Ollama、Nginx 或 frp，可让向导从官方来源或系统包管理器安装。
+2. 运行部署工具检测机器。若缺少 uv、Node.js、Git、Ollama、Nginx 或 frp，可让部署工具从官方来源或系统包管理器安装。
 3. 运行 bootstrap 安装 Python / Node 依赖。
 4. 拉取推荐模型并启动服务。
 
@@ -55,7 +55,7 @@ bash scripts/dev/start_all_linux.sh
 
 安装器下载缓存和安装报告只写入 `.deploy/portable/`，不会进入 Git。
 
-## 部署向导 dry-run
+## 部署工具 dry-run
 
 如果只想看环境检测和推荐结果，不写入 `.env`：
 
