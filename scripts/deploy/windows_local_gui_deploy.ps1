@@ -686,6 +686,8 @@ function Show-DeploymentSuccessDialog([string]$FrontendUrl, [string]$Username, [
   $dialog.FormBorderStyle = "FixedDialog"
   $dialog.MaximizeBox = $false
   $dialog.MinimizeBox = $false
+  $dialog.ShowInTaskbar = $true
+  $dialog.TopMost = $true
 
   $title = New-Object System.Windows.Forms.Label
   $title.Text = "部署完成，可以开始使用了"
@@ -759,8 +761,25 @@ function Show-DeploymentSuccessDialog([string]$FrontendUrl, [string]$Username, [
   $dialog.Controls.Add($okButton)
   $dialog.AcceptButton = $okButton
   $dialog.CancelButton = $okButton
+  $dialog.Add_Shown({
+    $dialog.Activate()
+    $dialog.TopMost = $true
+  })
 
-  [void]$dialog.ShowDialog($form)
+  [void]$dialog.ShowDialog()
+}
+
+function Show-DeploymentSuccessNotice([string]$FrontendUrl, [string]$Username, [string]$Password, [string]$ProjectRoot) {
+  try {
+    Show-DeploymentSuccessDialog -FrontendUrl $FrontendUrl -Username $Username -Password $Password -ProjectRoot $ProjectRoot
+  } catch {
+    [System.Windows.Forms.MessageBox]::Show(
+      "本地部署完成。浏览器地址：$FrontendUrl`n登录用户：$Username`n登录密码：$Password`n`n成功界面显示失败，已切换到基础提示框：$($_.Exception.Message)",
+      "Web虚拟分身",
+      [System.Windows.Forms.MessageBoxButtons]::OK,
+      [System.Windows.Forms.MessageBoxIcon]::Information
+    ) | Out-Null
+  }
 }
 
 $openLogButton.Add_Click({
@@ -795,7 +814,7 @@ $timer.Add_Tick({
     if ($deploymentSucceeded) {
       $progress.Value = 100
       $statusLabel.Text = "状态：部署完成"
-      Show-DeploymentSuccessDialog `
+      Show-DeploymentSuccessNotice `
         -FrontendUrl "http://127.0.0.1:$($frontendPort.Value)" `
         -Username ($adminUser.Text.Trim()) `
         -Password ($adminPassword.Text.Trim()) `
