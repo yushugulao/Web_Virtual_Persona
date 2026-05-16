@@ -35,7 +35,7 @@ function Save-RemoteUtf8Script([string]$Url, [string]$Path) {
         $client.Dispose()
     }
     $strictUtf8 = New-Object System.Text.UTF8Encoding($false, $true)
-    $text = $strictUtf8.GetString($bytes)
+    $text = $strictUtf8.GetString($bytes).TrimStart([char]0xFEFF)
     $utf8Bom = New-Object System.Text.UTF8Encoding($true)
     [System.IO.File]::WriteAllText($Path, $text, $utf8Bom)
 }
