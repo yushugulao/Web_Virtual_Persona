@@ -40,7 +40,7 @@ function Test-ProjectDirectory([string]$Path) {
     (Test-Path -LiteralPath (Join-Path $Path "scripts\deploy"))
 }
 
-function New-Label([string]$Text, [int]$X, [int]$Y, [int]$W = 160, [int]$H = 30) {
+function New-Label([string]$Text, [int]$X, [int]$Y, [int]$W = 170, [int]$H = 34) {
   $label = New-Object System.Windows.Forms.Label
   $label.Text = $Text
   $label.Location = New-Object System.Drawing.Point($X, $Y)
@@ -59,11 +59,11 @@ function New-AutoLabel([string]$Text, [int]$X, [int]$Y) {
   return $label
 }
 
-function New-CheckBox([string]$Text, [int]$X, [int]$Y, [bool]$Checked = $true, [int]$W = 520) {
+function New-CheckBox([string]$Text, [int]$X, [int]$Y, [bool]$Checked = $true, [int]$W = 620) {
   $box = New-Object System.Windows.Forms.CheckBox
   $box.Text = $Text
   $box.Location = New-Object System.Drawing.Point($X, $Y)
-  $box.Size = New-Object System.Drawing.Size($W, 32)
+  $box.Size = New-Object System.Drawing.Size($W, 38)
   $box.Checked = $Checked
   return $box
 }
@@ -652,48 +652,53 @@ if ($cfg.start_app) {
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Web虚拟分身 Windows 本地快速部署"
 $form.StartPosition = "CenterScreen"
-$form.Size = New-Object System.Drawing.Size(980, 980)
-$form.MinimumSize = New-Object System.Drawing.Size(900, 680)
+$workingArea = [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea
+$formWidth = [Math]::Min(1240, [Math]::Max(1040, $workingArea.Width - 80))
+$formHeight = [Math]::Min(1280, [Math]::Max(980, $workingArea.Height - 80))
+if ($formWidth -gt $workingArea.Width) { $formWidth = [Math]::Max(900, $workingArea.Width - 40) }
+if ($formHeight -gt $workingArea.Height) { $formHeight = [Math]::Max(760, $workingArea.Height - 40) }
+$form.Size = New-Object System.Drawing.Size($formWidth, $formHeight)
+$form.MinimumSize = New-Object System.Drawing.Size([Math]::Min(1040, $formWidth), [Math]::Min(760, $formHeight))
 $form.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
 $form.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 9)
 
 $contentPanel = New-Object System.Windows.Forms.Panel
 $contentPanel.Dock = [System.Windows.Forms.DockStyle]::Fill
 $contentPanel.AutoScroll = $true
-$contentPanel.AutoScrollMinSize = New-Object System.Drawing.Size(0, 1280)
+$contentPanel.AutoScrollMinSize = New-Object System.Drawing.Size(0, 1460)
 $contentPanel.Padding = New-Object System.Windows.Forms.Padding(0, 0, 0, 20)
 $form.Controls.Add($contentPanel)
 
 $title = New-Object System.Windows.Forms.Label
 $title.Text = "Web虚拟分身 本地部署"
 $title.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 15, [System.Drawing.FontStyle]::Bold)
-$title.Location = New-Object System.Drawing.Point(20, 16)
-$title.Size = New-Object System.Drawing.Size(560, 32)
+$title.Location = New-Object System.Drawing.Point(24, 18)
+$title.Size = New-Object System.Drawing.Size(720, 36)
 $contentPanel.Controls.Add($title)
 
 $subtitle = New-Object System.Windows.Forms.Label
 $subtitle.Text = "选择安装目录和运行配置，点击[开始部署]后会自动下载项目、安装依赖并启动本地服务。"
-$subtitle.Location = New-Object System.Drawing.Point(22, 56)
-$subtitle.Size = New-Object System.Drawing.Size(880, 38)
+$subtitle.Location = New-Object System.Drawing.Point(26, 62)
+$subtitle.Size = New-Object System.Drawing.Size(1120, 44)
 $contentPanel.Controls.Add($subtitle)
 
 $sourceGroup = New-Object System.Windows.Forms.GroupBox
 $sourceGroup.Text = "项目来源与安装位置"
-$sourceGroup.Location = New-Object System.Drawing.Point(20, 104)
-$sourceGroup.Size = New-Object System.Drawing.Size(900, 176)
+$sourceGroup.Location = New-Object System.Drawing.Point(24, 116)
+$sourceGroup.Size = New-Object System.Drawing.Size(1140, 210)
 $contentPanel.Controls.Add($sourceGroup)
 
-$sourceGroup.Controls.Add((New-Label "安装目录" 18 34 90))
+$sourceGroup.Controls.Add((New-Label "安装目录" 24 38 110))
 $projectText = New-Object System.Windows.Forms.TextBox
-$projectText.Location = New-Object System.Drawing.Point(110, 30)
-$projectText.Size = New-Object System.Drawing.Size(630, 28)
+$projectText.Location = New-Object System.Drawing.Point(146, 34)
+$projectText.Size = New-Object System.Drawing.Size(780, 30)
 $projectText.Text = $ProjectRoot
 $sourceGroup.Controls.Add($projectText)
 
 $browseButton = New-Object System.Windows.Forms.Button
 $browseButton.Text = "选择..."
-$browseButton.Location = New-Object System.Drawing.Point(750, 28)
-$browseButton.Size = New-Object System.Drawing.Size(70, 32)
+$browseButton.Location = New-Object System.Drawing.Point(946, 32)
+$browseButton.Size = New-Object System.Drawing.Size(90, 34)
 $browseButton.Add_Click({
   $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
   $dialog.Description = "选择 Web虚拟分身 安装目录"
@@ -706,42 +711,42 @@ $sourceGroup.Controls.Add($browseButton)
 
 $openFolderButton = New-Object System.Windows.Forms.Button
 $openFolderButton.Text = "打开"
-$openFolderButton.Location = New-Object System.Drawing.Point(828, 28)
-$openFolderButton.Size = New-Object System.Drawing.Size(70, 32)
+$openFolderButton.Location = New-Object System.Drawing.Point(1048, 32)
+$openFolderButton.Size = New-Object System.Drawing.Size(76, 34)
 $openFolderButton.Add_Click({
   if (Test-Path -LiteralPath $projectText.Text) { Start-Process $projectText.Text }
 })
 $sourceGroup.Controls.Add($openFolderButton)
 
-$sourceGroup.Controls.Add((New-Label "仓库" 18 76 90))
+$sourceGroup.Controls.Add((New-Label "仓库" 24 84 110))
 $repoText = New-Object System.Windows.Forms.TextBox
-$repoText.Location = New-Object System.Drawing.Point(110, 72)
-$repoText.Size = New-Object System.Drawing.Size(280, 28)
+$repoText.Location = New-Object System.Drawing.Point(146, 80)
+$repoText.Size = New-Object System.Drawing.Size(410, 30)
 $repoText.Text = $Repo
 $sourceGroup.Controls.Add($repoText)
 
-$sourceGroup.Controls.Add((New-Label "分支" 410 76 50))
+$sourceGroup.Controls.Add((New-Label "分支" 590 84 62))
 $branchText = New-Object System.Windows.Forms.TextBox
-$branchText.Location = New-Object System.Drawing.Point(462, 72)
-$branchText.Size = New-Object System.Drawing.Size(130, 28)
+$branchText.Location = New-Object System.Drawing.Point(660, 80)
+$branchText.Size = New-Object System.Drawing.Size(170, 30)
 $branchText.Text = $Branch
 $sourceGroup.Controls.Add($branchText)
 
-$downloadProject = New-CheckBox "下载/更新主项目代码（如果目录里已有项目且不覆盖，会直接复用）" 110 106 $true 760
-$replaceExisting = New-CheckBox "覆盖已有安装目录（会删除该目录后重新下载）" 110 136 ([bool]$Replace) 760
+$downloadProject = New-CheckBox "下载/更新主项目代码（如果目录里已有项目且不覆盖，会直接复用）" 146 120 $true 930
+$replaceExisting = New-CheckBox "覆盖已有安装目录（会删除该目录后重新下载）" 146 158 ([bool]$Replace) 930
 $sourceGroup.Controls.AddRange(@($downloadProject, $replaceExisting))
 
 $runtimeGroup = New-Object System.Windows.Forms.GroupBox
 $runtimeGroup.Text = "运行配置"
-$runtimeGroup.Location = New-Object System.Drawing.Point(20, 292)
-$runtimeGroup.Size = New-Object System.Drawing.Size(900, 248)
+$runtimeGroup.Location = New-Object System.Drawing.Point(24, 344)
+$runtimeGroup.Size = New-Object System.Drawing.Size(1140, 282)
 $contentPanel.Controls.Add($runtimeGroup)
 
-$runtimeGroup.Controls.Add((New-Label "模型配置" 18 34 90))
+$runtimeGroup.Controls.Add((New-Label "模型配置" 24 38 110))
 $profileCombo = New-Object System.Windows.Forms.ComboBox
-$profileCombo.Location = New-Object System.Drawing.Point(110, 30)
-$profileCombo.Size = New-Object System.Drawing.Size(760, 30)
-$profileCombo.DropDownWidth = 780
+$profileCombo.Location = New-Object System.Drawing.Point(146, 34)
+$profileCombo.Size = New-Object System.Drawing.Size(960, 32)
+$profileCombo.DropDownWidth = 1060
 $profileCombo.DropDownStyle = "DropDownList"
 $profiles = @(
   [pscustomobject]@{ Id = "quick_gpu"; Text = "快速体验：Qwen3 0.6B（下载小，先跑通）" },
@@ -756,182 +761,182 @@ foreach ($profile in $profiles) {
 $profileCombo.SelectedIndex = 0
 $runtimeGroup.Controls.Add($profileCombo)
 
-$runtimeGroup.Controls.Add((New-Label "后端" 18 78 48))
+$runtimeGroup.Controls.Add((New-Label "后端" 24 86 58))
 $backendPort = New-Object System.Windows.Forms.NumericUpDown
-$backendPort.Location = New-Object System.Drawing.Point(74, 74)
-$backendPort.Size = New-Object System.Drawing.Size(70, 28)
+$backendPort.Location = New-Object System.Drawing.Point(94, 82)
+$backendPort.Size = New-Object System.Drawing.Size(94, 30)
 $backendPort.Minimum = 1024
 $backendPort.Maximum = 65535
 $backendPort.Value = 8000
 $runtimeGroup.Controls.Add($backendPort)
 
-$runtimeGroup.Controls.Add((New-Label "前端" 170 78 48))
+$runtimeGroup.Controls.Add((New-Label "前端" 230 86 58))
 $frontendPort = New-Object System.Windows.Forms.NumericUpDown
-$frontendPort.Location = New-Object System.Drawing.Point(226, 74)
-$frontendPort.Size = New-Object System.Drawing.Size(70, 28)
+$frontendPort.Location = New-Object System.Drawing.Point(300, 82)
+$frontendPort.Size = New-Object System.Drawing.Size(94, 30)
 $frontendPort.Minimum = 1024
 $frontendPort.Maximum = 65535
 $frontendPort.Value = 5173
 $runtimeGroup.Controls.Add($frontendPort)
 
-$runtimeGroup.Controls.Add((New-Label "用户" 322 78 48))
+$runtimeGroup.Controls.Add((New-Label "用户" 436 86 58))
 $adminUser = New-Object System.Windows.Forms.TextBox
-$adminUser.Location = New-Object System.Drawing.Point(376, 74)
-$adminUser.Size = New-Object System.Drawing.Size(145, 28)
+$adminUser.Location = New-Object System.Drawing.Point(498, 82)
+$adminUser.Size = New-Object System.Drawing.Size(170, 30)
 $adminUser.Text = "admin"
 $runtimeGroup.Controls.Add($adminUser)
 
-$runtimeGroup.Controls.Add((New-Label "邮箱" 18 122 48))
+$runtimeGroup.Controls.Add((New-Label "邮箱" 24 134 58))
 $adminEmail = New-Object System.Windows.Forms.TextBox
-$adminEmail.Location = New-Object System.Drawing.Point(74, 118)
-$adminEmail.Size = New-Object System.Drawing.Size(316, 28)
+$adminEmail.Location = New-Object System.Drawing.Point(94, 130)
+$adminEmail.Size = New-Object System.Drawing.Size(350, 30)
 $adminEmail.Text = "admin@local.persona-rag"
 $runtimeGroup.Controls.Add($adminEmail)
 
-$runtimeGroup.Controls.Add((New-Label "密码" 548 78 48))
+$runtimeGroup.Controls.Add((New-Label "密码" 704 86 58))
 $adminPassword = New-Object System.Windows.Forms.TextBox
-$adminPassword.Location = New-Object System.Drawing.Point(602, 74)
-$adminPassword.Size = New-Object System.Drawing.Size(180, 28)
+$adminPassword.Location = New-Object System.Drawing.Point(774, 82)
+$adminPassword.Size = New-Object System.Drawing.Size(220, 30)
 $adminPassword.Text = "admin123456"
 $runtimeGroup.Controls.Add($adminPassword)
 
-$authRequired = New-CheckBox "启用登录认证" 420 118 $true 140
-$installTools = New-CheckBox "自动安装 uv / Node / Ollama" 110 160 $true 380
-$installProjectDeps = New-CheckBox "安装项目依赖" 510 160 $true 150
-$pullModels = New-CheckBox "拉取所选模型" 680 160 $true 160
-$startApp = New-CheckBox "完成后启动服务" 110 202 $true 160
-$openBrowser = New-CheckBox "启动后打开浏览器" 280 202 $true 180
+$authRequired = New-CheckBox "启用登录认证" 480 128 $true 180
+$installTools = New-CheckBox "自动安装 uv / Node / Ollama" 146 176 $true 390
+$installProjectDeps = New-CheckBox "安装项目依赖" 560 176 $true 190
+$pullModels = New-CheckBox "拉取所选模型" 780 176 $true 190
+$startApp = New-CheckBox "完成后启动服务" 146 224 $true 190
+$openBrowser = New-CheckBox "启动后打开浏览器" 360 224 $true 210
 $runtimeGroup.Controls.AddRange(@($authRequired, $installTools, $installProjectDeps, $pullModels, $startApp, $openBrowser))
 
 $advancedGroup = New-Object System.Windows.Forms.GroupBox
 $advancedGroup.Text = "高级配置（可留空）"
-$advancedGroup.Location = New-Object System.Drawing.Point(20, 552)
-$advancedGroup.Size = New-Object System.Drawing.Size(900, 220)
+$advancedGroup.Location = New-Object System.Drawing.Point(24, 646)
+$advancedGroup.Size = New-Object System.Drawing.Size(1140, 250)
 $contentPanel.Controls.Add($advancedGroup)
 
-$advancedGroup.Controls.Add((New-AutoLabel "Ollama 地址" 18 36))
+$advancedGroup.Controls.Add((New-AutoLabel "Ollama 地址" 24 38))
 $ollamaUrl = New-Object System.Windows.Forms.TextBox
-$ollamaUrl.Location = New-Object System.Drawing.Point(148, 30)
-$ollamaUrl.Size = New-Object System.Drawing.Size(260, 28)
+$ollamaUrl.Location = New-Object System.Drawing.Point(190, 32)
+$ollamaUrl.Size = New-Object System.Drawing.Size(330, 30)
 $ollamaUrl.Text = "http://127.0.0.1:11434"
 $advancedGroup.Controls.Add($ollamaUrl)
 
-$advancedGroup.Controls.Add((New-AutoLabel "数据路径" 430 36))
+$advancedGroup.Controls.Add((New-AutoLabel "数据路径" 560 38))
 $sqlitePath = New-Object System.Windows.Forms.TextBox
-$sqlitePath.Location = New-Object System.Drawing.Point(520, 30)
-$sqlitePath.Size = New-Object System.Drawing.Size(230, 28)
+$sqlitePath.Location = New-Object System.Drawing.Point(650, 32)
+$sqlitePath.Size = New-Object System.Drawing.Size(320, 30)
 $sqlitePath.Text = "data/sqlite/persona_rag.sqlite3"
 $advancedGroup.Controls.Add($sqlitePath)
 
-$advancedGroup.Controls.Add((New-AutoLabel "环境" 770 36))
+$advancedGroup.Controls.Add((New-AutoLabel "环境" 990 38))
 $envCombo = New-Object System.Windows.Forms.ComboBox
-$envCombo.Location = New-Object System.Drawing.Point(812, 30)
-$envCombo.Size = New-Object System.Drawing.Size(76, 28)
+$envCombo.Location = New-Object System.Drawing.Point(1034, 32)
+$envCombo.Size = New-Object System.Drawing.Size(80, 30)
 $envCombo.DropDownStyle = "DropDownList"
 [void]$envCombo.Items.Add("dev")
 [void]$envCombo.Items.Add("prod")
 $envCombo.SelectedItem = "dev"
 $advancedGroup.Controls.Add($envCombo)
 
-$advancedGroup.Controls.Add((New-AutoLabel "DeepSeek 密钥" 18 82))
+$advancedGroup.Controls.Add((New-AutoLabel "DeepSeek 密钥" 24 88))
 $deepseekKey = New-Object System.Windows.Forms.TextBox
-$deepseekKey.Location = New-Object System.Drawing.Point(148, 76)
-$deepseekKey.Size = New-Object System.Drawing.Size(740, 28)
+$deepseekKey.Location = New-Object System.Drawing.Point(190, 82)
+$deepseekKey.Size = New-Object System.Drawing.Size(924, 30)
 $deepseekKey.UseSystemPasswordChar = $true
 $advancedGroup.Controls.Add($deepseekKey)
 
-$advancedGroup.Controls.Add((New-AutoLabel "SMTP 主机" 18 128))
+$advancedGroup.Controls.Add((New-AutoLabel "SMTP 主机" 24 140))
 $smtpHost = New-Object System.Windows.Forms.TextBox
-$smtpHost.Location = New-Object System.Drawing.Point(148, 122)
-$smtpHost.Size = New-Object System.Drawing.Size(260, 28)
+$smtpHost.Location = New-Object System.Drawing.Point(190, 134)
+$smtpHost.Size = New-Object System.Drawing.Size(330, 30)
 $advancedGroup.Controls.Add($smtpHost)
 
-$advancedGroup.Controls.Add((New-AutoLabel "SMTP 用户" 430 128))
+$advancedGroup.Controls.Add((New-AutoLabel "SMTP 用户" 560 140))
 $smtpUser = New-Object System.Windows.Forms.TextBox
-$smtpUser.Location = New-Object System.Drawing.Point(520, 122)
-$smtpUser.Size = New-Object System.Drawing.Size(230, 28)
+$smtpUser.Location = New-Object System.Drawing.Point(650, 134)
+$smtpUser.Size = New-Object System.Drawing.Size(320, 30)
 $advancedGroup.Controls.Add($smtpUser)
 
-$advancedGroup.Controls.Add((New-AutoLabel "SMTP 发件" 18 174))
+$advancedGroup.Controls.Add((New-AutoLabel "SMTP 发件" 24 194))
 $smtpFrom = New-Object System.Windows.Forms.TextBox
-$smtpFrom.Location = New-Object System.Drawing.Point(148, 168)
-$smtpFrom.Size = New-Object System.Drawing.Size(260, 28)
+$smtpFrom.Location = New-Object System.Drawing.Point(190, 188)
+$smtpFrom.Size = New-Object System.Drawing.Size(330, 30)
 $advancedGroup.Controls.Add($smtpFrom)
 
-$advancedGroup.Controls.Add((New-AutoLabel "SMTP 密码" 430 174))
+$advancedGroup.Controls.Add((New-AutoLabel "SMTP 密码" 560 194))
 $smtpPassword = New-Object System.Windows.Forms.TextBox
-$smtpPassword.Location = New-Object System.Drawing.Point(520, 168)
-$smtpPassword.Size = New-Object System.Drawing.Size(230, 28)
+$smtpPassword.Location = New-Object System.Drawing.Point(650, 188)
+$smtpPassword.Size = New-Object System.Drawing.Size(320, 30)
 $smtpPassword.UseSystemPasswordChar = $true
 $advancedGroup.Controls.Add($smtpPassword)
 
 $startButton = New-Object System.Windows.Forms.Button
 $startButton.Text = "开始部署"
-$startButton.Location = New-Object System.Drawing.Point(130, 792)
-$startButton.Size = New-Object System.Drawing.Size(120, 38)
+$startButton.Location = New-Object System.Drawing.Point(160, 924)
+$startButton.Size = New-Object System.Drawing.Size(130, 42)
 $contentPanel.Controls.Add($startButton)
 
 $stopButton = New-Object System.Windows.Forms.Button
 $stopButton.Text = "停止当前步骤"
-$stopButton.Location = New-Object System.Drawing.Point(266, 792)
-$stopButton.Size = New-Object System.Drawing.Size(132, 38)
+$stopButton.Location = New-Object System.Drawing.Point(310, 924)
+$stopButton.Size = New-Object System.Drawing.Size(140, 42)
 $stopButton.Enabled = $false
 $contentPanel.Controls.Add($stopButton)
 
 $openLogButton = New-Object System.Windows.Forms.Button
 $openLogButton.Text = "打开日志目录"
-$openLogButton.Location = New-Object System.Drawing.Point(414, 792)
-$openLogButton.Size = New-Object System.Drawing.Size(150, 38)
+$openLogButton.Location = New-Object System.Drawing.Point(470, 924)
+$openLogButton.Size = New-Object System.Drawing.Size(170, 42)
 $contentPanel.Controls.Add($openLogButton)
 
 $statusLabel = New-Object System.Windows.Forms.Label
 $statusLabel.Text = "状态：等待开始"
-$statusLabel.Location = New-Object System.Drawing.Point(584, 798)
-$statusLabel.Size = New-Object System.Drawing.Size(336, 32)
+$statusLabel.Location = New-Object System.Drawing.Point(666, 930)
+$statusLabel.Size = New-Object System.Drawing.Size(480, 34)
 $contentPanel.Controls.Add($statusLabel)
 
 $stageLabel = New-Object System.Windows.Forms.Label
 $stageLabel.Text = "当前阶段：等待开始"
-$stageLabel.Location = New-Object System.Drawing.Point(20, 840)
-$stageLabel.Size = New-Object System.Drawing.Size(500, 30)
+$stageLabel.Location = New-Object System.Drawing.Point(24, 976)
+$stageLabel.Size = New-Object System.Drawing.Size(540, 34)
 $contentPanel.Controls.Add($stageLabel)
 
 $stageCountLabel = New-Object System.Windows.Forms.Label
 $stageCountLabel.Text = "总体进度：0/8"
-$stageCountLabel.Location = New-Object System.Drawing.Point(542, 840)
-$stageCountLabel.Size = New-Object System.Drawing.Size(160, 30)
+$stageCountLabel.Location = New-Object System.Drawing.Point(596, 976)
+$stageCountLabel.Size = New-Object System.Drawing.Size(190, 34)
 $contentPanel.Controls.Add($stageCountLabel)
 
 $elapsedLabel = New-Object System.Windows.Forms.Label
 $elapsedLabel.Text = "耗时：00:00:00"
-$elapsedLabel.Location = New-Object System.Drawing.Point(720, 840)
-$elapsedLabel.Size = New-Object System.Drawing.Size(200, 30)
+$elapsedLabel.Location = New-Object System.Drawing.Point(820, 976)
+$elapsedLabel.Size = New-Object System.Drawing.Size(260, 34)
 $contentPanel.Controls.Add($elapsedLabel)
 
 $detailLabel = New-Object System.Windows.Forms.Label
 $detailLabel.Text = "最近动作：等待开始部署"
-$detailLabel.Location = New-Object System.Drawing.Point(20, 874)
-$detailLabel.Size = New-Object System.Drawing.Size(900, 30)
+$detailLabel.Location = New-Object System.Drawing.Point(24, 1014)
+$detailLabel.Size = New-Object System.Drawing.Size(1140, 34)
 $contentPanel.Controls.Add($detailLabel)
 
 $progress = New-Object System.Windows.Forms.ProgressBar
-$progress.Location = New-Object System.Drawing.Point(20, 904)
-$progress.Size = New-Object System.Drawing.Size(900, 16)
+$progress.Location = New-Object System.Drawing.Point(24, 1054)
+$progress.Size = New-Object System.Drawing.Size(1140, 18)
 $progress.Style = "Blocks"
 $progress.Minimum = 0
 $progress.Maximum = 100
 $contentPanel.Controls.Add($progress)
 
 $stagePanel = New-Object System.Windows.Forms.Panel
-$stagePanel.Location = New-Object System.Drawing.Point(20, 936)
-$stagePanel.Size = New-Object System.Drawing.Size(900, 116)
+$stagePanel.Location = New-Object System.Drawing.Point(24, 1090)
+$stagePanel.Size = New-Object System.Drawing.Size(1140, 132)
 $stagePanel.BorderStyle = "FixedSingle"
 $stagePanel.BackColor = [System.Drawing.SystemColors]::Window
 $contentPanel.Controls.Add($stagePanel)
 
 $logBox = New-Object System.Windows.Forms.TextBox
-$logBox.Location = New-Object System.Drawing.Point(20, 1068)
-$logBox.Size = New-Object System.Drawing.Size(900, 128)
+$logBox.Location = New-Object System.Drawing.Point(24, 1240)
+$logBox.Size = New-Object System.Drawing.Size(1140, 144)
 $logBox.Multiline = $true
 $logBox.ScrollBars = "Vertical"
 $logBox.ReadOnly = $true
@@ -940,8 +945,8 @@ $contentPanel.Controls.Add($logBox)
 
 $hint = New-Object System.Windows.Forms.Label
 $hint.Text = "提示：首次体验建议 quick_gpu。安装目录、仓库分支、端口、账号、模型和可选密钥都可在本窗口修改。"
-$hint.Location = New-Object System.Drawing.Point(20, 1214)
-$hint.Size = New-Object System.Drawing.Size(900, 36)
+$hint.Location = New-Object System.Drawing.Point(24, 1400)
+$hint.Size = New-Object System.Drawing.Size(1120, 38)
 $contentPanel.Controls.Add($hint)
 
 $script:RunnerProcess = $null
@@ -964,8 +969,8 @@ $script:ProgressStages = @(
 $script:StageItemLabels = @()
 for ($i = 0; $i -lt $script:ProgressStages.Count; $i++) {
   $stageItem = New-Object System.Windows.Forms.Label
-  $stageItem.Location = New-Object System.Drawing.Point((8 + 456 * [Math]::Floor($i / 4)), (8 + 26 * ($i % 4)))
-  $stageItem.Size = New-Object System.Drawing.Size(430, 24)
+  $stageItem.Location = New-Object System.Drawing.Point((14 + 560 * [Math]::Floor($i / 4)), (12 + 30 * ($i % 4)))
+  $stageItem.Size = New-Object System.Drawing.Size(540, 28)
   $stageItem.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 8.5)
   $stageItem.Text = ""
   $stagePanel.Controls.Add($stageItem)
@@ -1123,7 +1128,7 @@ function Show-DeploymentSuccessDialog([string]$FrontendUrl, [string]$Username, [
   $dialog = New-Object System.Windows.Forms.Form
   $dialog.Text = "部署完成"
   $dialog.StartPosition = "CenterParent"
-  $dialog.Size = New-Object System.Drawing.Size(560, 320)
+  $dialog.Size = New-Object System.Drawing.Size(700, 360)
   $dialog.FormBorderStyle = "FixedDialog"
   $dialog.MaximizeBox = $false
   $dialog.MinimizeBox = $false
@@ -1134,15 +1139,15 @@ function Show-DeploymentSuccessDialog([string]$FrontendUrl, [string]$Username, [
   $title.Text = "部署完成，可以开始使用了"
   $title.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 13, [System.Drawing.FontStyle]::Bold)
   $title.Location = New-Object System.Drawing.Point(24, 22)
-  $title.Size = New-Object System.Drawing.Size(500, 30)
+  $title.Size = New-Object System.Drawing.Size(640, 34)
   $dialog.Controls.Add($title)
 
   $urlLabel = New-Label "浏览器地址" 24 72 90
   $dialog.Controls.Add($urlLabel)
   $urlBox = New-Object System.Windows.Forms.TextBox
   $urlBox.Text = $FrontendUrl
-  $urlBox.Location = New-Object System.Drawing.Point(120, 68)
-  $urlBox.Size = New-Object System.Drawing.Size(390, 24)
+  $urlBox.Location = New-Object System.Drawing.Point(132, 68)
+  $urlBox.Size = New-Object System.Drawing.Size(500, 28)
   $urlBox.ReadOnly = $true
   $dialog.Controls.Add($urlBox)
 
@@ -1150,30 +1155,30 @@ function Show-DeploymentSuccessDialog([string]$FrontendUrl, [string]$Username, [
   $dialog.Controls.Add($userLabel)
   $userBox = New-Object System.Windows.Forms.TextBox
   $userBox.Text = $Username
-  $userBox.Location = New-Object System.Drawing.Point(120, 108)
-  $userBox.Size = New-Object System.Drawing.Size(150, 24)
+  $userBox.Location = New-Object System.Drawing.Point(132, 108)
+  $userBox.Size = New-Object System.Drawing.Size(190, 28)
   $userBox.ReadOnly = $true
   $dialog.Controls.Add($userBox)
 
-  $passLabel = New-Label "登录密码" 290 112 90
+  $passLabel = New-Label "登录密码" 360 112 90
   $dialog.Controls.Add($passLabel)
   $passBox = New-Object System.Windows.Forms.TextBox
   $passBox.Text = $Password
-  $passBox.Location = New-Object System.Drawing.Point(380, 108)
-  $passBox.Size = New-Object System.Drawing.Size(130, 24)
+  $passBox.Location = New-Object System.Drawing.Point(460, 108)
+  $passBox.Size = New-Object System.Drawing.Size(172, 28)
   $passBox.ReadOnly = $true
   $dialog.Controls.Add($passBox)
 
   $note = New-Object System.Windows.Forms.Label
   $note.Text = "部署流程已经完成。安装目录中已生成[卸载 Web虚拟分身.exe]；需要移除本次安装时运行它即可。"
   $note.Location = New-Object System.Drawing.Point(24, 154)
-  $note.Size = New-Object System.Drawing.Size(500, 50)
+  $note.Size = New-Object System.Drawing.Size(640, 56)
   $dialog.Controls.Add($note)
 
   $openButton = New-Object System.Windows.Forms.Button
   $openButton.Text = "打开浏览器"
-  $openButton.Location = New-Object System.Drawing.Point(120, 230)
-  $openButton.Size = New-Object System.Drawing.Size(110, 32)
+  $openButton.Location = New-Object System.Drawing.Point(148, 250)
+  $openButton.Size = New-Object System.Drawing.Size(120, 36)
   $openButton.Add_Click({
     try {
       Start-Process $FrontendUrl
@@ -1185,8 +1190,8 @@ function Show-DeploymentSuccessDialog([string]$FrontendUrl, [string]$Username, [
 
   $folderButton = New-Object System.Windows.Forms.Button
   $folderButton.Text = "安装目录"
-  $folderButton.Location = New-Object System.Drawing.Point(250, 230)
-  $folderButton.Size = New-Object System.Drawing.Size(100, 32)
+  $folderButton.Location = New-Object System.Drawing.Point(292, 250)
+  $folderButton.Size = New-Object System.Drawing.Size(112, 36)
   $folderButton.Add_Click({
     if ($ProjectRoot -and (Test-Path -LiteralPath $ProjectRoot)) {
       Start-Process $ProjectRoot
@@ -1196,8 +1201,8 @@ function Show-DeploymentSuccessDialog([string]$FrontendUrl, [string]$Username, [
 
   $okButton = New-Object System.Windows.Forms.Button
   $okButton.Text = "关闭"
-  $okButton.Location = New-Object System.Drawing.Point(370, 230)
-  $okButton.Size = New-Object System.Drawing.Size(90, 32)
+  $okButton.Location = New-Object System.Drawing.Point(428, 250)
+  $okButton.Size = New-Object System.Drawing.Size(96, 36)
   $okButton.Add_Click({ $dialog.Close() })
   $dialog.Controls.Add($okButton)
   $dialog.AcceptButton = $okButton
