@@ -7,7 +7,7 @@ param(
   [switch]$Yes,
   [switch]$NonInteractive,
   [string]$Answers = "",
-  [ValidateSet("auto", "minimal_cpu", "standard_gpu", "no_model_dev")]
+  [ValidateSet("auto", "minimal_cpu", "quick_gpu", "standard_gpu", "no_model_dev")]
   [string]$Profile = "auto",
   [ValidateSet("", "local_lan", "direct_public_server", "frp_tunnel", "compute_backend_frp")]
   [string]$Mode = "",

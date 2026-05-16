@@ -15,13 +15,14 @@ def _load_project_dotenv() -> None:
         lines = env_path.read_text(encoding="utf-8").splitlines()
     except OSError:
         return
+    protected_keys = set(os.environ)
     for line in lines:
         stripped = line.strip()
         if not stripped or stripped.startswith("#") or "=" not in stripped:
             continue
         key, value = stripped.split("=", 1)
         key = key.strip()
-        if not key or key in os.environ:
+        if not key or key in protected_keys:
             continue
         value = value.strip().strip('"').strip("'")
         os.environ[key] = value
