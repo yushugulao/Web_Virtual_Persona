@@ -531,6 +531,9 @@ function Write-SuccessMarker([string]$FrontendUrl) {
     frontend_port = [int]$cfg.frontend_port
     admin_username = [string]$cfg.admin_username
     uninstaller_path = (Join-Path $ProjectRoot "卸载 Web虚拟分身.exe")
+    document_reader_base = [bool]$cfg.install_document_reader_base
+    ocr_marker_surya = [bool]$cfg.install_ocr_marker_surya
+    paddleocr_vl = [bool]$cfg.install_paddleocr_vl
     completed_at = (Get-Date).ToString("o")
   }
   $marker | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $markerPath -Encoding utf8
@@ -544,6 +547,44 @@ function Get-ProfileModels([string]$Profile) {
   }
   $data = Get-Content -LiteralPath $path -Raw | ConvertFrom-Json
   return @($data.models)
+}
+
+function Get-MarkerSuryaPythonPath {
+  return Join-Path $ProjectRoot "models\document_reader\runtimes\marker_surya\.venv\Scripts\python.exe"
+}
+
+function Get-PaddleOcrVlPythonPath {
+  return Join-Path $ProjectRoot "models\document_reader\runtimes\paddleocr_vl\.venv\Scripts\python.exe"
+}
+
+function Write-DocumentReaderSettings([string]$EnvPath) {
+  $cacheDir = [string]$cfg.document_reader_model_cache_dir
+  if (-not $cacheDir) { $cacheDir = "models/document_reader" }
+
+  Set-DotEnvValue $EnvPath "DOCUMENT_READER_MODEL_CACHE_DIR" $cacheDir
+  Set-DotEnvValue $EnvPath "DOCUMENT_READER_ENABLE_DOCLING" ([string]$cfg.install_document_reader_base).ToLowerInvariant()
+  Set-DotEnvValue $EnvPath "DOCUMENT_READER_ENABLE_GRANITE_DOCLING" "false"
+  Set-DotEnvValue $EnvPath "DOCUMENT_READER_ENABLE_MINERU" "false"
+  Set-DotEnvValue $EnvPath "DOCUMENT_READER_ENABLE_OLMOCR" "false"
+
+  if ($cfg.install_ocr_marker_surya) {
+    Set-DotEnvValue $EnvPath "DOCUMENT_READER_ENABLE_MARKER_SURYA" "true"
+    Set-DotEnvValue $EnvPath "DOCUMENT_READER_MARKER_SURYA_PYTHON" (Get-MarkerSuryaPythonPath)
+    Set-DotEnvValue $EnvPath "DOCUMENT_READER_MARKER_SURYA_DEVICE" ([string]$cfg.marker_surya_device)
+    Set-DotEnvValue $EnvPath "DOCUMENT_READER_MARKER_SURYA_TIMEOUT_SECONDS" "900"
+  } else {
+    Set-DotEnvValue $EnvPath "DOCUMENT_READER_ENABLE_MARKER_SURYA" "false"
+  }
+
+  if ($cfg.install_paddleocr_vl) {
+    Set-DotEnvValue $EnvPath "DOCUMENT_READER_ENABLE_PADDLEOCR_VL" "true"
+    Set-DotEnvValue $EnvPath "DOCUMENT_READER_PADDLEOCR_VL_MODE" "worker"
+    Set-DotEnvValue $EnvPath "DOCUMENT_READER_PADDLEOCR_VL_PYTHON" (Get-PaddleOcrVlPythonPath)
+    Set-DotEnvValue $EnvPath "DOCUMENT_READER_PADDLEOCR_VL_DEVICE" ([string]$cfg.paddleocr_vl_device)
+    Set-DotEnvValue $EnvPath "DOCUMENT_READER_PADDLEOCR_VL_TIMEOUT_SECONDS" "900"
+  } else {
+    Set-DotEnvValue $EnvPath "DOCUMENT_READER_ENABLE_PADDLEOCR_VL" "false"
+  }
 }
 
 if ($cfg.download_project) {
@@ -583,20 +624,66 @@ Set-DotEnvValue $envPath "PERSONA_RAG_AUTH_ADMIN_USERNAME" ([string]$cfg.admin_u
 Set-DotEnvValue $envPath "PERSONA_RAG_AUTH_ADMIN_EMAIL" ([string]$cfg.admin_email)
 Set-DotEnvValue $envPath "PERSONA_RAG_AUTH_ADMIN_PASSWORD" ([string]$cfg.admin_password)
 Set-DotEnvValue $envPath "PERSONA_RAG_DEEPSEEK_API_KEY" ([string]$cfg.deepseek_api_key)
+Set-DotEnvValue $envPath "PERSONA_RAG_DEEPSEEK_MODEL" ([string]$cfg.deepseek_model)
+Set-DotEnvValue $envPath "PERSONA_RAG_DEEPSEEK_BASE_URL" ([string]$cfg.deepseek_base_url)
+Set-DotEnvValue $envPath "PERSONA_RAG_DEEPSEEK_TIMEOUT_SECONDS" ([string]$cfg.deepseek_timeout_seconds)
 Set-DotEnvValue $envPath "PERSONA_RAG_SMTP_HOST" ([string]$cfg.smtp_host)
+Set-DotEnvValue $envPath "PERSONA_RAG_SMTP_PORT" ([string]$cfg.smtp_port)
+Set-DotEnvValue $envPath "PERSONA_RAG_SMTP_SECURITY" ([string]$cfg.smtp_security)
 Set-DotEnvValue $envPath "PERSONA_RAG_SMTP_USERNAME" ([string]$cfg.smtp_username)
 Set-DotEnvValue $envPath "PERSONA_RAG_SMTP_PASSWORD" ([string]$cfg.smtp_password)
 Set-DotEnvValue $envPath "PERSONA_RAG_SMTP_FROM" ([string]$cfg.smtp_from)
 Set-DotEnvValue $envPath "PERSONA_RAG_DEPLOYMENT_MODE" "local_lan"
 Set-DotEnvValue $envPath "PERSONA_RAG_DEPLOYMENT_PROFILE" $profileId
+Write-DocumentReaderSettings $envPath
 
 Write-UninstallerPackage $dependencyManifest
 
 if ($cfg.install_project_dependencies) {
   Step "Installing backend and frontend dependencies"
   $powershell = Get-PowerShellExecutable
-  & $powershell -NoProfile -ExecutionPolicy Bypass -File scripts\setup\bootstrap_windows.ps1
+  $bootstrapArgs = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "scripts\setup\bootstrap_windows.ps1")
+  if ($cfg.install_document_reader_base) {
+    $bootstrapArgs += "-WithDocumentReader"
+  }
+  & $powershell @bootstrapArgs
   if ($LASTEXITCODE -ne 0) { throw "bootstrap_windows.ps1 failed." }
+} elseif ($cfg.install_document_reader_base -or $cfg.install_ocr_marker_surya -or $cfg.install_paddleocr_vl) {
+  Write-Warning "已跳过项目依赖安装，因此文档读取基础包不会安装。"
+}
+
+if ($cfg.install_ocr_marker_surya) {
+  Step "Installing OCR runtime and models: Marker/Surya"
+  $powershell = Get-PowerShellExecutable
+  & $powershell -NoProfile -ExecutionPolicy Bypass -File scripts\document_reader\setup_marker_surya_runtime.ps1 `
+    -Device ([string]$cfg.marker_surya_device) `
+    -RunSmoke
+  if ($LASTEXITCODE -ne 0) { throw "setup_marker_surya_runtime.ps1 failed." }
+  Write-DocumentReaderSettings $envPath
+}
+
+if ($cfg.install_paddleocr_vl) {
+  Step "Installing OCR runtime and models: PaddleOCR-VL"
+  $powershell = Get-PowerShellExecutable
+  & $powershell -NoProfile -ExecutionPolicy Bypass -File scripts\document_reader\setup_paddleocr_vl_runtime.ps1 `
+    -Device ([string]$cfg.paddleocr_vl_device) `
+    -RunSmoke
+  if ($LASTEXITCODE -ne 0) { throw "setup_paddleocr_vl_runtime.ps1 failed." }
+  Write-DocumentReaderSettings $envPath
+}
+
+if ($cfg.install_document_reader_base -or $cfg.install_ocr_marker_surya -or $cfg.install_paddleocr_vl) {
+  Step "Checking document reader and OCR backends"
+  if ($cfg.install_document_reader_base) {
+    & uv run python -c "import docling.document_converter; print('Docling document reader ready')"
+    if ($LASTEXITCODE -ne 0) { throw "Docling document reader check failed." }
+  }
+  if ($cfg.install_ocr_marker_surya) {
+    Write-Host "Marker/Surya OCR runtime configured: $(Get-MarkerSuryaPythonPath)"
+  }
+  if ($cfg.install_paddleocr_vl) {
+    Write-Host "PaddleOCR-VL runtime configured: $(Get-PaddleOcrVlPythonPath)"
+  }
 }
 
 $models = Get-ProfileModels $profileId
@@ -665,7 +752,7 @@ $form.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 9)
 $contentPanel = New-Object System.Windows.Forms.Panel
 $contentPanel.Dock = [System.Windows.Forms.DockStyle]::Fill
 $contentPanel.AutoScroll = $true
-$contentPanel.AutoScrollMinSize = New-Object System.Drawing.Size(0, 1460)
+$contentPanel.AutoScrollMinSize = New-Object System.Drawing.Size(0, 1820)
 $contentPanel.Padding = New-Object System.Windows.Forms.Padding(0, 0, 0, 20)
 $form.Controls.Add($contentPanel)
 
@@ -808,10 +895,43 @@ $startApp = New-CheckBox "完成后启动服务" 146 224 $true 190
 $openBrowser = New-CheckBox "启动后打开浏览器" 360 224 $true 210
 $runtimeGroup.Controls.AddRange(@($authRequired, $installTools, $installProjectDeps, $pullModels, $startApp, $openBrowser))
 
+$documentGroup = New-Object System.Windows.Forms.GroupBox
+$documentGroup.Text = "文档读取与 OCR"
+$documentGroup.Location = New-Object System.Drawing.Point(24, 646)
+$documentGroup.Size = New-Object System.Drawing.Size(1140, 176)
+$contentPanel.Controls.Add($documentGroup)
+
+$installDocReader = New-CheckBox "安装文档读取基础包（Docling，支持 PDF / Office）" 146 30 $true 520
+$installMarkerSurya = New-CheckBox "安装 OCR 运行时（Marker/Surya，扫描 PDF/图片，首次较久）" 146 76 $false 620
+$installPaddleOcrVl = New-CheckBox "安装 PaddleOCR-VL 本地运行时（实验，较大）" 146 116 $false 520
+$documentGroup.Controls.AddRange(@($installDocReader, $installMarkerSurya, $installPaddleOcrVl))
+
+$documentGroup.Controls.Add((New-Label "设备" 800 76 58))
+$markerDeviceCombo = New-Object System.Windows.Forms.ComboBox
+$markerDeviceCombo.Location = New-Object System.Drawing.Point(868, 76)
+$markerDeviceCombo.Size = New-Object System.Drawing.Size(132, 30)
+$markerDeviceCombo.DropDownStyle = "DropDownList"
+[void]$markerDeviceCombo.Items.Add("auto")
+[void]$markerDeviceCombo.Items.Add("cpu")
+[void]$markerDeviceCombo.Items.Add("cuda")
+$markerDeviceCombo.SelectedItem = "auto"
+$documentGroup.Controls.Add($markerDeviceCombo)
+
+$documentGroup.Controls.Add((New-Label "Paddle 设备" 720 116 120))
+$paddleDeviceCombo = New-Object System.Windows.Forms.ComboBox
+$paddleDeviceCombo.Location = New-Object System.Drawing.Point(852, 116)
+$paddleDeviceCombo.Size = New-Object System.Drawing.Size(132, 30)
+$paddleDeviceCombo.DropDownStyle = "DropDownList"
+[void]$paddleDeviceCombo.Items.Add("auto")
+[void]$paddleDeviceCombo.Items.Add("cpu")
+[void]$paddleDeviceCombo.Items.Add("gpu")
+$paddleDeviceCombo.SelectedItem = "auto"
+$documentGroup.Controls.Add($paddleDeviceCombo)
+
 $advancedGroup = New-Object System.Windows.Forms.GroupBox
 $advancedGroup.Text = "高级配置（可留空）"
-$advancedGroup.Location = New-Object System.Drawing.Point(24, 646)
-$advancedGroup.Size = New-Object System.Drawing.Size(1140, 250)
+$advancedGroup.Location = New-Object System.Drawing.Point(24, 840)
+$advancedGroup.Size = New-Object System.Drawing.Size(1140, 356)
 $contentPanel.Controls.Add($advancedGroup)
 
 $advancedGroup.Controls.Add((New-AutoLabel "Ollama 地址" 24 38))
@@ -838,89 +958,132 @@ $envCombo.DropDownStyle = "DropDownList"
 $envCombo.SelectedItem = "dev"
 $advancedGroup.Controls.Add($envCombo)
 
-$advancedGroup.Controls.Add((New-AutoLabel "DeepSeek 密钥" 24 88))
+$advancedGroup.Controls.Add((New-Label "DeepSeek 密钥" 24 88 150))
 $deepseekKey = New-Object System.Windows.Forms.TextBox
 $deepseekKey.Location = New-Object System.Drawing.Point(190, 82)
-$deepseekKey.Size = New-Object System.Drawing.Size(924, 30)
+$deepseekKey.Size = New-Object System.Drawing.Size(330, 30)
 $deepseekKey.UseSystemPasswordChar = $true
 $advancedGroup.Controls.Add($deepseekKey)
 
-$advancedGroup.Controls.Add((New-AutoLabel "SMTP 主机" 24 140))
+$advancedGroup.Controls.Add((New-Label "模型名称" 560 88 90))
+$deepseekModel = New-Object System.Windows.Forms.TextBox
+$deepseekModel.Location = New-Object System.Drawing.Point(674, 82)
+$deepseekModel.Size = New-Object System.Drawing.Size(190, 30)
+$deepseekModel.Text = "deepseek-v4-pro"
+$advancedGroup.Controls.Add($deepseekModel)
+
+$advancedGroup.Controls.Add((New-Label "超时(秒)" 920 88 84))
+$deepseekTimeout = New-Object System.Windows.Forms.NumericUpDown
+$deepseekTimeout.Location = New-Object System.Drawing.Point(1004, 82)
+$deepseekTimeout.Size = New-Object System.Drawing.Size(110, 30)
+$deepseekTimeout.Minimum = 30
+$deepseekTimeout.Maximum = 3600
+$deepseekTimeout.Value = 300
+$advancedGroup.Controls.Add($deepseekTimeout)
+
+$advancedGroup.Controls.Add((New-Label "DeepSeek 地址" 24 140 150))
+$deepseekBaseUrl = New-Object System.Windows.Forms.TextBox
+$deepseekBaseUrl.Location = New-Object System.Drawing.Point(190, 134)
+$deepseekBaseUrl.Size = New-Object System.Drawing.Size(690, 30)
+$deepseekBaseUrl.Text = "https://api.deepseek.com"
+$advancedGroup.Controls.Add($deepseekBaseUrl)
+
+$advancedGroup.Controls.Add((New-Label "SMTP 主机" 24 194 150))
 $smtpHost = New-Object System.Windows.Forms.TextBox
-$smtpHost.Location = New-Object System.Drawing.Point(190, 134)
+$smtpHost.Location = New-Object System.Drawing.Point(190, 188)
 $smtpHost.Size = New-Object System.Drawing.Size(330, 30)
 $advancedGroup.Controls.Add($smtpHost)
 
-$advancedGroup.Controls.Add((New-AutoLabel "SMTP 用户" 560 140))
+$advancedGroup.Controls.Add((New-Label "端口" 560 194 58))
+$smtpPort = New-Object System.Windows.Forms.NumericUpDown
+$smtpPort.Location = New-Object System.Drawing.Point(630, 188)
+$smtpPort.Size = New-Object System.Drawing.Size(100, 30)
+$smtpPort.Minimum = 1
+$smtpPort.Maximum = 65535
+$smtpPort.Value = 465
+$advancedGroup.Controls.Add($smtpPort)
+
+$advancedGroup.Controls.Add((New-Label "安全" 770 194 58))
+$smtpSecurity = New-Object System.Windows.Forms.ComboBox
+$smtpSecurity.Location = New-Object System.Drawing.Point(840, 188)
+$smtpSecurity.Size = New-Object System.Drawing.Size(110, 30)
+$smtpSecurity.DropDownStyle = "DropDownList"
+[void]$smtpSecurity.Items.Add("ssl")
+[void]$smtpSecurity.Items.Add("starttls")
+[void]$smtpSecurity.Items.Add("none")
+$smtpSecurity.SelectedItem = "ssl"
+$advancedGroup.Controls.Add($smtpSecurity)
+
+$advancedGroup.Controls.Add((New-Label "SMTP 用户" 24 246 150))
 $smtpUser = New-Object System.Windows.Forms.TextBox
-$smtpUser.Location = New-Object System.Drawing.Point(650, 134)
-$smtpUser.Size = New-Object System.Drawing.Size(320, 30)
+$smtpUser.Location = New-Object System.Drawing.Point(190, 240)
+$smtpUser.Size = New-Object System.Drawing.Size(330, 30)
 $advancedGroup.Controls.Add($smtpUser)
 
-$advancedGroup.Controls.Add((New-AutoLabel "SMTP 发件" 24 194))
+$advancedGroup.Controls.Add((New-Label "发件地址" 560 246 90))
 $smtpFrom = New-Object System.Windows.Forms.TextBox
-$smtpFrom.Location = New-Object System.Drawing.Point(190, 188)
-$smtpFrom.Size = New-Object System.Drawing.Size(330, 30)
+$smtpFrom.Location = New-Object System.Drawing.Point(670, 240)
+$smtpFrom.Size = New-Object System.Drawing.Size(350, 30)
 $advancedGroup.Controls.Add($smtpFrom)
 
-$advancedGroup.Controls.Add((New-AutoLabel "SMTP 密码" 560 194))
+$advancedGroup.Controls.Add((New-Label "SMTP 密码" 24 298 150))
 $smtpPassword = New-Object System.Windows.Forms.TextBox
-$smtpPassword.Location = New-Object System.Drawing.Point(650, 188)
-$smtpPassword.Size = New-Object System.Drawing.Size(320, 30)
+$smtpPassword.Location = New-Object System.Drawing.Point(190, 292)
+$smtpPassword.Size = New-Object System.Drawing.Size(330, 30)
 $smtpPassword.UseSystemPasswordChar = $true
 $advancedGroup.Controls.Add($smtpPassword)
 
 $startButton = New-Object System.Windows.Forms.Button
 $startButton.Text = "开始部署"
-$startButton.Location = New-Object System.Drawing.Point(160, 924)
+$startButton.Location = New-Object System.Drawing.Point(160, 1224)
 $startButton.Size = New-Object System.Drawing.Size(130, 42)
 $contentPanel.Controls.Add($startButton)
 
 $stopButton = New-Object System.Windows.Forms.Button
 $stopButton.Text = "停止当前步骤"
-$stopButton.Location = New-Object System.Drawing.Point(310, 924)
+$stopButton.Location = New-Object System.Drawing.Point(310, 1224)
 $stopButton.Size = New-Object System.Drawing.Size(140, 42)
 $stopButton.Enabled = $false
 $contentPanel.Controls.Add($stopButton)
 
 $openLogButton = New-Object System.Windows.Forms.Button
 $openLogButton.Text = "打开日志目录"
-$openLogButton.Location = New-Object System.Drawing.Point(470, 924)
+$openLogButton.Location = New-Object System.Drawing.Point(470, 1224)
 $openLogButton.Size = New-Object System.Drawing.Size(170, 42)
 $contentPanel.Controls.Add($openLogButton)
 
 $statusLabel = New-Object System.Windows.Forms.Label
 $statusLabel.Text = "状态：等待开始"
-$statusLabel.Location = New-Object System.Drawing.Point(666, 930)
+$statusLabel.Location = New-Object System.Drawing.Point(666, 1230)
 $statusLabel.Size = New-Object System.Drawing.Size(480, 34)
 $contentPanel.Controls.Add($statusLabel)
 
 $stageLabel = New-Object System.Windows.Forms.Label
 $stageLabel.Text = "当前阶段：等待开始"
-$stageLabel.Location = New-Object System.Drawing.Point(24, 976)
+$stageLabel.Location = New-Object System.Drawing.Point(24, 1276)
 $stageLabel.Size = New-Object System.Drawing.Size(540, 34)
 $contentPanel.Controls.Add($stageLabel)
 
 $stageCountLabel = New-Object System.Windows.Forms.Label
-$stageCountLabel.Text = "总体进度：0/8"
-$stageCountLabel.Location = New-Object System.Drawing.Point(596, 976)
+$stageCountLabel.Text = "总体进度：0/9"
+$stageCountLabel.Location = New-Object System.Drawing.Point(596, 1276)
 $stageCountLabel.Size = New-Object System.Drawing.Size(190, 34)
 $contentPanel.Controls.Add($stageCountLabel)
 
 $elapsedLabel = New-Object System.Windows.Forms.Label
 $elapsedLabel.Text = "耗时：00:00:00"
-$elapsedLabel.Location = New-Object System.Drawing.Point(820, 976)
+$elapsedLabel.Location = New-Object System.Drawing.Point(820, 1276)
 $elapsedLabel.Size = New-Object System.Drawing.Size(260, 34)
 $contentPanel.Controls.Add($elapsedLabel)
 
 $detailLabel = New-Object System.Windows.Forms.Label
 $detailLabel.Text = "最近动作：等待开始部署"
-$detailLabel.Location = New-Object System.Drawing.Point(24, 1014)
+$detailLabel.Location = New-Object System.Drawing.Point(24, 1314)
 $detailLabel.Size = New-Object System.Drawing.Size(1140, 34)
 $contentPanel.Controls.Add($detailLabel)
 
 $progress = New-Object System.Windows.Forms.ProgressBar
-$progress.Location = New-Object System.Drawing.Point(24, 1054)
+$progress.Location = New-Object System.Drawing.Point(24, 1354)
 $progress.Size = New-Object System.Drawing.Size(1140, 18)
 $progress.Style = "Blocks"
 $progress.Minimum = 0
@@ -928,14 +1091,14 @@ $progress.Maximum = 100
 $contentPanel.Controls.Add($progress)
 
 $stagePanel = New-Object System.Windows.Forms.Panel
-$stagePanel.Location = New-Object System.Drawing.Point(24, 1090)
-$stagePanel.Size = New-Object System.Drawing.Size(1140, 132)
+$stagePanel.Location = New-Object System.Drawing.Point(24, 1390)
+$stagePanel.Size = New-Object System.Drawing.Size(1140, 166)
 $stagePanel.BorderStyle = "FixedSingle"
 $stagePanel.BackColor = [System.Drawing.SystemColors]::Window
 $contentPanel.Controls.Add($stagePanel)
 
 $logBox = New-Object System.Windows.Forms.TextBox
-$logBox.Location = New-Object System.Drawing.Point(24, 1240)
+$logBox.Location = New-Object System.Drawing.Point(24, 1574)
 $logBox.Size = New-Object System.Drawing.Size(1140, 144)
 $logBox.Multiline = $true
 $logBox.ScrollBars = "Vertical"
@@ -944,8 +1107,8 @@ $logBox.Font = New-Object System.Drawing.Font("Consolas", 9)
 $contentPanel.Controls.Add($logBox)
 
 $hint = New-Object System.Windows.Forms.Label
-$hint.Text = "提示：首次体验建议 quick_gpu。安装目录、仓库分支、端口、账号、模型和可选密钥都可在本窗口修改。"
-$hint.Location = New-Object System.Drawing.Point(24, 1400)
+$hint.Text = "提示：首次体验建议 quick_gpu。OCR 模型运行时体积较大，只有勾选后才会安装和预热。"
+$hint.Location = New-Object System.Drawing.Point(24, 1738)
 $hint.Size = New-Object System.Drawing.Size(1120, 38)
 $contentPanel.Controls.Add($hint)
 
@@ -957,19 +1120,20 @@ $script:CurrentErrLog = ""
 $script:CurrentStageIndex = -1
 $script:DeploymentStartedAt = $null
 $script:ProgressStages = @(
-  [pscustomobject]@{ Key = "download"; Text = "下载项目源码"; Percent = 10; Pattern = "Downloading project source|Using existing project directory" },
-  [pscustomobject]@{ Key = "tools"; Text = "检查/安装工具"; Percent = 25; Pattern = "Checking and installing required tools|Installing uv|Installing Node\.js|Ollama is available|uv is available|Node\.js is available" },
-  [pscustomobject]@{ Key = "config"; Text = "写入本地配置"; Percent = 35; Pattern = "Writing local deployment configuration|Preparing local uninstaller|UNINSTALLER:|Updated portable deployment overrides|portable_deploy\.py" },
-  [pscustomobject]@{ Key = "deps"; Text = "安装项目依赖"; Percent = 55; Pattern = "Installing backend and frontend dependencies|Bootstrap complete|bootstrap_windows\.ps1" },
-  [pscustomobject]@{ Key = "models"; Text = "拉取/确认模型"; Percent = 70; Pattern = "Pulling local models|No model pull is needed|Skipping model pull" },
-  [pscustomobject]@{ Key = "start"; Text = "启动本地服务"; Percent = 85; Pattern = "Starting local backend and frontend|start_all_windows\.ps1|Started backend|Started frontend" },
+  [pscustomobject]@{ Key = "download"; Text = "下载项目源码"; Percent = 8; Pattern = "Downloading project source|Using existing project directory" },
+  [pscustomobject]@{ Key = "tools"; Text = "检查/安装工具"; Percent = 20; Pattern = "Checking and installing required tools|Installing uv|Installing Node\.js|Ollama is available|uv is available|Node\.js is available" },
+  [pscustomobject]@{ Key = "config"; Text = "写入本地配置"; Percent = 32; Pattern = "Writing local deployment configuration|Preparing local uninstaller|UNINSTALLER:|Updated portable deployment overrides|portable_deploy\.py" },
+  [pscustomobject]@{ Key = "deps"; Text = "安装项目依赖"; Percent = 48; Pattern = "Installing backend and frontend dependencies|Bootstrap complete|bootstrap_windows\.ps1" },
+  [pscustomobject]@{ Key = "document"; Text = "安装文档/OCR能力"; Percent = 62; Pattern = "Installing OCR runtime|Checking document reader|Document Reader Backend Check|Marker/Surya runtime ready|PaddleOCR-VL runtime ready" },
+  [pscustomobject]@{ Key = "models"; Text = "拉取/确认模型"; Percent = 76; Pattern = "Pulling local models|No model pull is needed|Skipping model pull|已跳过模型拉取" },
+  [pscustomobject]@{ Key = "start"; Text = "启动本地服务"; Percent = 88; Pattern = "Starting local backend and frontend|start_all_windows\.ps1|Started backend|Started frontend" },
   [pscustomobject]@{ Key = "wait"; Text = "等待浏览器端点"; Percent = 95; Pattern = "Waiting for local browser endpoint" },
   [pscustomobject]@{ Key = "ready"; Text = "部署完成"; Percent = 100; Pattern = "SUCCESS_MARKER:|Local deployment is ready\.|Setup completed\." }
 )
 $script:StageItemLabels = @()
 for ($i = 0; $i -lt $script:ProgressStages.Count; $i++) {
   $stageItem = New-Object System.Windows.Forms.Label
-  $stageItem.Location = New-Object System.Drawing.Point((14 + 560 * [Math]::Floor($i / 4)), (12 + 30 * ($i % 4)))
+  $stageItem.Location = New-Object System.Drawing.Point((14 + 560 * [Math]::Floor($i / 5)), (12 + 30 * ($i % 5)))
   $stageItem.Size = New-Object System.Drawing.Size(540, 28)
   $stageItem.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 8.5)
   $stageItem.Text = ""
@@ -1298,6 +1462,11 @@ $startButton.Add_Click({
     [System.Windows.Forms.MessageBox]::Show("后端端口和前端端口不能相同。", "Web虚拟分身") | Out-Null
     return
   }
+  $documentReaderSelected = [bool]$installDocReader.Checked -or [bool]$installMarkerSurya.Checked -or [bool]$installPaddleOcrVl.Checked
+  if ($documentReaderSelected -and -not $installProjectDeps.Checked) {
+    [System.Windows.Forms.MessageBox]::Show("文档读取和 OCR 能力需要安装项目依赖。请勾选[安装项目依赖]后再开始部署。", "Web虚拟分身") | Out-Null
+    return
+  }
 
   # Keep the bootstrap runner outside the target install directory. This prevents the
   # "empty directory" check from seeing our own logs, and it also allows replace-existing
@@ -1332,10 +1501,21 @@ $startButton.Add_Click({
     ollama_base_url = $ollamaUrl.Text.Trim()
     sqlite_path = $sqlitePath.Text.Trim()
     deepseek_api_key = $deepseekKey.Text.Trim()
+    deepseek_model = $deepseekModel.Text.Trim()
+    deepseek_base_url = $deepseekBaseUrl.Text.Trim()
+    deepseek_timeout_seconds = [int]$deepseekTimeout.Value
     smtp_host = $smtpHost.Text.Trim()
+    smtp_port = [int]$smtpPort.Value
+    smtp_security = [string]$smtpSecurity.SelectedItem
     smtp_username = $smtpUser.Text.Trim()
     smtp_password = $smtpPassword.Text.Trim()
     smtp_from = $smtpFrom.Text.Trim()
+    install_document_reader_base = [bool]$installDocReader.Checked
+    install_ocr_marker_surya = [bool]$installMarkerSurya.Checked
+    marker_surya_device = [string]$markerDeviceCombo.SelectedItem
+    install_paddleocr_vl = [bool]$installPaddleOcrVl.Checked
+    paddleocr_vl_device = [string]$paddleDeviceCombo.SelectedItem
+    document_reader_model_cache_dir = "models/document_reader"
     install_tools = [bool]$installTools.Checked
     install_project_dependencies = [bool]$installProjectDeps.Checked
     pull_models = [bool]$pullModels.Checked

@@ -2,7 +2,7 @@
 
 ## Windows
 
-推荐先使用图形化本地部署。运行下面的命令后，会打开部署界面；你可以选择安装目录、仓库分支、覆盖策略、模型配置、账号、端口、Ollama URL、SQLite 路径、可选 DeepSeek/SMTP 配置，并引导安装 uv、Node.js/npm、Ollama、项目依赖和模型。点击“开始部署”后，系统会下载主项目并启动本地服务。
+推荐先使用图形化本地部署。运行下面的命令后，会打开部署界面；你可以选择安装目录、仓库分支、覆盖策略、模型配置、账号、端口、Ollama URL、SQLite 路径、文档读取/OCR 能力、DeepSeek/SMTP 配置，并引导安装 uv、Node.js/npm、Ollama、项目依赖和模型。点击“开始部署”后，系统会下载主项目并启动本地服务。
 
 ```powershell
 powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/yushugulao/Web_Virtual_Persona/main/bootstrap.ps1 | iex"
@@ -79,6 +79,6 @@ bash scripts/deploy/portable_deploy.sh --dry-run --non-interactive
 bash scripts/deploy/portable_deploy.sh --dry-run-install
 ```
 
-## 可选 OCR/VLM
+## 文档读取与 OCR
 
-Docling 是默认文档解析后端。Marker/Surya 可以作为扫描 PDF、图片、截图、表格、公式和图表的增强 OCR/VLM 后端。Windows CUDA 环境可参考 `docs/public/document_reader.md`。
+图形化部署会默认安装 Docling 基础文档读取依赖，用于 PDF / Office 等常见文件解析。Marker/Surya 和 PaddleOCR-VL 属于较大的 OCR/VLM 运行时；只有在界面中勾选后，部署器才会创建独立运行时、下载依赖和预热模型缓存。Windows CUDA 环境可参考 `docs/public/document_reader.md`。

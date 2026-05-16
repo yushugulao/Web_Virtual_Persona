@@ -19,7 +19,7 @@ $env:WEB_VIRTUAL_PERSONA_DIR="$HOME\WebVirtualPersona"
 powershell -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/yushugulao/Web_Virtual_Persona/main/bootstrap.ps1 | iex"
 ```
 
-图形界面会让你选择安装目录、仓库/分支、覆盖策略、模型配置、管理员账号、端口、Ollama URL、SQLite 路径、可选 DeepSeek/SMTP 配置、是否安装依赖、是否拉取模型，以及是否自动打开浏览器。
+图形界面会让你选择安装目录、仓库/分支、覆盖策略、模型配置、管理员账号、端口、Ollama URL、SQLite 路径、文档读取/OCR 能力、DeepSeek/SMTP 配置、是否安装依赖、是否拉取模型，以及是否自动打开浏览器。基础文档读取默认安装；Marker/Surya 和 PaddleOCR-VL 这类较大的 OCR 运行时只有勾选后才会下载、安装和预热。
 首次体验建议选择 `快速体验：Qwen3 0.6B`，下载小，能更快验证完整链路。完成后访问：
 
 - 前端：`http://127.0.0.1:5173`
