@@ -1,4 +1,4 @@
-﻿param(
+param(
     [string]$Repo = $env:WEB_VIRTUAL_PERSONA_REPO,
     [string]$Branch = $env:WEB_VIRTUAL_PERSONA_BRANCH,
     [string]$Destination = $env:WEB_VIRTUAL_PERSONA_DIR,
@@ -15,6 +15,7 @@ if (-not $Branch) { $Branch = "main" }
 if (-not $Destination) { $Destination = "C:\WebVirtualPersona" }
 if ($env:WEB_VIRTUAL_PERSONA_REPLACE -eq "1") { $Replace = $true }
 if ($env:WEB_VIRTUAL_PERSONA_NO_GUI -eq "1") { $NoGui = $true }
+if ($env:WEB_VIRTUAL_PERSONA_DRY_RUN -eq "1") { $DryRun = $true }
 if (-not $GuiScriptUrl) {
     $GuiScriptUrl = "https://raw.githubusercontent.com/$Repo/$Branch/scripts/deploy/windows_local_gui_deploy.ps1"
 }
@@ -63,7 +64,7 @@ function Get-PowerShellExecutable {
     foreach ($candidate in ($candidates | Where-Object { $_ } | Select-Object -Unique)) {
         if (Test-Path -LiteralPath $candidate) { return $candidate }
     }
-    throw "找不到 PowerShell 可执行文件。请确认 Windows PowerShell 5.1 可用，或修复 PATH 后重试。"
+    throw "PowerShell executable was not found. Ensure Windows PowerShell 5.1 is available, or repair PATH and retry."
 }
 
 function Test-ProjectDirectory([string]$Path) {
