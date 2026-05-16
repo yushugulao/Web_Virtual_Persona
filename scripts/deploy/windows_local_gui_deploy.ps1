@@ -183,6 +183,157 @@ function Find-Ollama {
   return $null
 }
 
+function Get-CommandSourceSafe([string]$Name) {
+  $cmd = Get-Command $Name -ErrorAction SilentlyContinue
+  if ($cmd) { return $cmd.Source }
+  return $null
+}
+
+function Get-DependencySnapshot {
+  return [ordered]@{
+    uv = Get-CommandSourceSafe "uv"
+    node = Get-CommandSourceSafe "node"
+    npm = Get-CommandSourceSafe "npm"
+    ollama = Find-Ollama
+  }
+}
+
+function New-DependencyManifest($Before, $After) {
+  $uvBefore = [bool]$Before.uv
+  $nodeCompleteBefore = ([bool]$Before.node -and [bool]$Before.npm)
+  $nodeAbsentBefore = (-not [bool]$Before.node -and -not [bool]$Before.npm)
+  $ollamaBefore = [bool]$Before.ollama
+  return [ordered]@{
+    uv = [ordered]@{
+      label = "uv"
+      was_present_before = $uvBefore
+      before_path = [string]$Before.uv
+      after_path = [string]$After.uv
+      installed_by_deployer = (-not $uvBefore -and [bool]$After.uv)
+      uninstall_kind = "remove_uv_user_bin"
+    }
+    node = [ordered]@{
+      label = "Node.js LTS"
+      was_present_before = $nodeCompleteBefore
+      before_path = [string]$Before.node
+      before_npm_path = [string]$Before.npm
+      after_path = [string]$After.node
+      after_npm_path = [string]$After.npm
+      installed_by_deployer = ($nodeAbsentBefore -and [bool]$After.node -and [bool]$After.npm)
+      uninstall_kind = "winget"
+      winget_id = "OpenJS.NodeJS.LTS"
+    }
+    ollama = [ordered]@{
+      label = "Ollama"
+      was_present_before = $ollamaBefore
+      before_path = [string]$Before.ollama
+      after_path = [string]$After.ollama
+      installed_by_deployer = (-not $ollamaBefore -and [bool]$After.ollama)
+      uninstall_kind = "registry_or_winget"
+      winget_id = "Ollama.Ollama"
+    }
+  }
+}
+
+function Write-Utf8BomFile([string]$SourcePath, [string]$DestinationPath) {
+  $strictUtf8 = New-Object System.Text.UTF8Encoding($false, $true)
+  $text = [System.IO.File]::ReadAllText($SourcePath, $strictUtf8).TrimStart([char]0xFEFF)
+  $utf8Bom = New-Object System.Text.UTF8Encoding($true)
+  [System.IO.File]::WriteAllText($DestinationPath, $text, $utf8Bom)
+}
+
+function Write-UninstallLauncherExe([string]$OutputPath) {
+  if (Test-Path -LiteralPath $OutputPath) {
+    Remove-Item -LiteralPath $OutputPath -Force
+  }
+  $source = @"
+using System;
+using System.Diagnostics;
+using System.IO;
+using System.Windows.Forms;
+
+public static class WebVirtualPersonaUninstallLauncher
+{
+    [STAThread]
+    public static void Main()
+    {
+        try
+        {
+            string root = AppDomain.CurrentDomain.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            string script = Path.Combine(root, ".deploy", "uninstall", "windows_uninstall.ps1");
+            string manifest = Path.Combine(root, ".deploy", "uninstall", "install_manifest.json");
+            if (!File.Exists(script))
+            {
+                MessageBox.Show("找不到卸载脚本：" + script, "Web虚拟分身 卸载", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+            string tempDir = Path.Combine(Path.GetTempPath(), "web-avatar-uninstall-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            string tempScript = Path.Combine(tempDir, "windows_uninstall.ps1");
+            File.Copy(script, tempScript, true);
+
+            string powershell = Environment.ExpandEnvironmentVariables(@"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe");
+            if (!File.Exists(powershell))
+            {
+                powershell = "powershell.exe";
+            }
+
+            ProcessStartInfo info = new ProcessStartInfo();
+            info.FileName = powershell;
+            info.Arguments = "-NoProfile -STA -ExecutionPolicy Bypass -File " + Quote(tempScript) + " -ProjectRoot " + Quote(root) + " -ManifestPath " + Quote(manifest);
+            info.UseShellExecute = false;
+            info.CreateNoWindow = true;
+            Process.Start(info);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("无法启动卸载程序：" + ex.Message, "Web虚拟分身 卸载", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private static string Quote(string value)
+    {
+        return "\"" + value.Replace("\"", "\\\"") + "\"";
+    }
+}
+"@
+  Add-Type -TypeDefinition $source `
+    -ReferencedAssemblies @("System.Windows.Forms.dll", "System.Drawing.dll") `
+    -OutputAssembly $OutputPath `
+    -OutputType WindowsApplication `
+    -ErrorAction Stop
+}
+
+function Write-UninstallerPackage($DependencyManifest) {
+  Step "Preparing local uninstaller"
+  $uninstallDir = Join-Path $ProjectRoot ".deploy\uninstall"
+  New-Item -ItemType Directory -Force -Path $uninstallDir | Out-Null
+  $sourceScript = Join-Path $ProjectRoot "scripts\deploy\windows_uninstall.ps1"
+  if (-not (Test-Path -LiteralPath $sourceScript)) {
+    throw "Uninstall script not found: $sourceScript"
+  }
+  $scriptPath = Join-Path $uninstallDir "windows_uninstall.ps1"
+  Write-Utf8BomFile -SourcePath $sourceScript -DestinationPath $scriptPath
+
+  $manifestPath = Join-Path $uninstallDir "install_manifest.json"
+  $manifest = [ordered]@{
+    schema_version = 1
+    product = "Web虚拟分身"
+    project_root = $ProjectRoot
+    repo = $Repo
+    branch = $Branch
+    profile = [string]$cfg.profile
+    installed_at = (Get-Date).ToString("o")
+    dependencies = $DependencyManifest
+    remove_project_root = $true
+  }
+  $manifest | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $manifestPath -Encoding utf8
+
+  $exePath = Join-Path $ProjectRoot "卸载 Web虚拟分身.exe"
+  Write-UninstallLauncherExe -OutputPath $exePath
+  Write-Host "UNINSTALLER: $exePath"
+}
+
 function Ensure-Uv {
   Refresh-Path
   if (Has-Command "uv") {
@@ -293,6 +444,7 @@ function Write-SuccessMarker([string]$FrontendUrl) {
     backend_port = [int]$cfg.backend_port
     frontend_port = [int]$cfg.frontend_port
     admin_username = [string]$cfg.admin_username
+    uninstaller_path = (Join-Path $ProjectRoot "卸载 Web虚拟分身.exe")
     completed_at = (Get-Date).ToString("o")
   }
   $marker | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $markerPath -Encoding utf8
@@ -319,9 +471,12 @@ Set-Location -LiteralPath $ProjectRoot
 $profileId = [string]$cfg.profile
 
 Step "Checking and installing required tools"
+$dependencySnapshotBefore = Get-DependencySnapshot
 Ensure-Uv
 Ensure-Node
 Ensure-Ollama
+$dependencySnapshotAfter = Get-DependencySnapshot
+$dependencyManifest = New-DependencyManifest $dependencySnapshotBefore $dependencySnapshotAfter
 
 Step "Writing local deployment configuration"
 & uv run python scripts/deploy/portable_deploy.py --mode local_lan --profile $profileId --non-interactive
@@ -348,6 +503,8 @@ Set-DotEnvValue $envPath "PERSONA_RAG_SMTP_PASSWORD" ([string]$cfg.smtp_password
 Set-DotEnvValue $envPath "PERSONA_RAG_SMTP_FROM" ([string]$cfg.smtp_from)
 Set-DotEnvValue $envPath "PERSONA_RAG_DEPLOYMENT_MODE" "local_lan"
 Set-DotEnvValue $envPath "PERSONA_RAG_DEPLOYMENT_PROFILE" $profileId
+
+Write-UninstallerPackage $dependencyManifest
 
 if ($cfg.install_project_dependencies) {
   Step "Installing backend and frontend dependencies"
@@ -701,7 +858,7 @@ $script:DeploymentStartedAt = $null
 $script:ProgressStages = @(
   [pscustomobject]@{ Key = "download"; Text = "下载项目源码"; Percent = 10; Pattern = "Downloading project source|Using existing project directory" },
   [pscustomobject]@{ Key = "tools"; Text = "检查/安装工具"; Percent = 25; Pattern = "Checking and installing required tools|Installing uv|Installing Node\.js|Ollama is available|uv is available|Node\.js is available" },
-  [pscustomobject]@{ Key = "config"; Text = "写入本地配置"; Percent = 35; Pattern = "Writing local deployment configuration|Updated portable deployment overrides|portable_deploy\.py" },
+  [pscustomobject]@{ Key = "config"; Text = "写入本地配置"; Percent = 35; Pattern = "Writing local deployment configuration|Preparing local uninstaller|UNINSTALLER:|Updated portable deployment overrides|portable_deploy\.py" },
   [pscustomobject]@{ Key = "deps"; Text = "安装项目依赖"; Percent = 55; Pattern = "Installing backend and frontend dependencies|Bootstrap complete|bootstrap_windows\.ps1" },
   [pscustomobject]@{ Key = "models"; Text = "拉取/确认模型"; Percent = 70; Pattern = "Pulling local models|No model pull is needed|Skipping model pull" },
   [pscustomobject]@{ Key = "start"; Text = "启动本地服务"; Percent = 85; Pattern = "Starting local backend and frontend|start_all_windows\.ps1|Started backend|Started frontend" },
@@ -870,7 +1027,7 @@ function Show-DeploymentSuccessDialog([string]$FrontendUrl, [string]$Username, [
   $dialog = New-Object System.Windows.Forms.Form
   $dialog.Text = "部署完成"
   $dialog.StartPosition = "CenterParent"
-  $dialog.Size = New-Object System.Drawing.Size(560, 300)
+  $dialog.Size = New-Object System.Drawing.Size(560, 320)
   $dialog.FormBorderStyle = "FixedDialog"
   $dialog.MaximizeBox = $false
   $dialog.MinimizeBox = $false
@@ -912,14 +1069,14 @@ function Show-DeploymentSuccessDialog([string]$FrontendUrl, [string]$Username, [
   $dialog.Controls.Add($passBox)
 
   $note = New-Object System.Windows.Forms.Label
-  $note.Text = "部署流程已经完成。若已选择启动服务，可以直接打开浏览器；需要排查时可查看部署日志。"
+  $note.Text = "部署流程已经完成。安装目录中已生成[卸载 Web虚拟分身.exe]；需要移除本次安装时运行它即可。"
   $note.Location = New-Object System.Drawing.Point(24, 154)
-  $note.Size = New-Object System.Drawing.Size(500, 36)
+  $note.Size = New-Object System.Drawing.Size(500, 50)
   $dialog.Controls.Add($note)
 
   $openButton = New-Object System.Windows.Forms.Button
   $openButton.Text = "打开浏览器"
-  $openButton.Location = New-Object System.Drawing.Point(120, 210)
+  $openButton.Location = New-Object System.Drawing.Point(120, 230)
   $openButton.Size = New-Object System.Drawing.Size(110, 32)
   $openButton.Add_Click({
     try {
@@ -932,7 +1089,7 @@ function Show-DeploymentSuccessDialog([string]$FrontendUrl, [string]$Username, [
 
   $folderButton = New-Object System.Windows.Forms.Button
   $folderButton.Text = "安装目录"
-  $folderButton.Location = New-Object System.Drawing.Point(250, 210)
+  $folderButton.Location = New-Object System.Drawing.Point(250, 230)
   $folderButton.Size = New-Object System.Drawing.Size(100, 32)
   $folderButton.Add_Click({
     if ($ProjectRoot -and (Test-Path -LiteralPath $ProjectRoot)) {
@@ -943,7 +1100,7 @@ function Show-DeploymentSuccessDialog([string]$FrontendUrl, [string]$Username, [
 
   $okButton = New-Object System.Windows.Forms.Button
   $okButton.Text = "关闭"
-  $okButton.Location = New-Object System.Drawing.Point(370, 210)
+  $okButton.Location = New-Object System.Drawing.Point(370, 230)
   $okButton.Size = New-Object System.Drawing.Size(90, 32)
   $okButton.Add_Click({ $dialog.Close() })
   $dialog.Controls.Add($okButton)
