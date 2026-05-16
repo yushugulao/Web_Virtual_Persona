@@ -17,8 +17,21 @@ if (-not $DefaultProjectRoot) { $DefaultProjectRoot = $env:WEB_VIRTUAL_PERSONA_D
 if (-not $DefaultProjectRoot) { $DefaultProjectRoot = "C:\WebVirtualPersona" }
 if (-not $ProjectRoot) { $ProjectRoot = $DefaultProjectRoot }
 
+try {
+  Add-Type -TypeDefinition @"
+using System.Runtime.InteropServices;
+public static class WebVirtualPersonaDpi {
+  [DllImport("user32.dll")]
+  public static extern bool SetProcessDPIAware();
+}
+"@ -ErrorAction SilentlyContinue
+  [void][WebVirtualPersonaDpi]::SetProcessDPIAware()
+} catch {
+}
+
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
+[System.Windows.Forms.Application]::SetCompatibleTextRenderingDefault($false)
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
 function Test-ProjectDirectory([string]$Path) {
@@ -32,6 +45,8 @@ function New-Label([string]$Text, [int]$X, [int]$Y, [int]$W = 160, [int]$H = 24)
   $label.Text = $Text
   $label.Location = New-Object System.Drawing.Point($X, $Y)
   $label.Size = New-Object System.Drawing.Size($W, $H)
+  $label.TextAlign = [System.Drawing.ContentAlignment]::MiddleLeft
+  $label.AutoEllipsis = $true
   return $label
 }
 
@@ -39,7 +54,7 @@ function New-CheckBox([string]$Text, [int]$X, [int]$Y, [bool]$Checked = $true, [
   $box = New-Object System.Windows.Forms.CheckBox
   $box.Text = $Text
   $box.Location = New-Object System.Drawing.Point($X, $Y)
-  $box.Size = New-Object System.Drawing.Size($W, 24)
+  $box.Size = New-Object System.Drawing.Size($W, 26)
   $box.Checked = $Checked
   return $box
 }
@@ -384,6 +399,8 @@ $form.Text = "Web虚拟分身 Windows 本地快速部署"
 $form.StartPosition = "CenterScreen"
 $form.Size = New-Object System.Drawing.Size(980, 940)
 $form.MinimumSize = New-Object System.Drawing.Size(940, 840)
+$form.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Dpi
+$form.Font = New-Object System.Drawing.Font("Microsoft YaHei UI", 9)
 
 $title = New-Object System.Windows.Forms.Label
 $title.Text = "Web虚拟分身 本地部署向导"
@@ -448,8 +465,8 @@ $branchText.Size = New-Object System.Drawing.Size(130, 24)
 $branchText.Text = $Branch
 $sourceGroup.Controls.Add($branchText)
 
-$downloadProject = New-CheckBox "下载/更新主项目代码（如果目录里已有项目且不覆盖，会直接复用）" 110 96 $true 500
-$replaceExisting = New-CheckBox "覆盖已有安装目录（会删除该目录后重新下载）" 620 96 ([bool]$Replace) 280
+$downloadProject = New-CheckBox "下载/更新主项目代码（如果目录里已有项目且不覆盖，会直接复用）" 110 86 $true 760
+$replaceExisting = New-CheckBox "覆盖已有安装目录（会删除该目录后重新下载）" 110 112 ([bool]$Replace) 760
 $sourceGroup.Controls.AddRange(@($downloadProject, $replaceExisting))
 
 $runtimeGroup = New-Object System.Windows.Forms.GroupBox
@@ -461,7 +478,8 @@ $form.Controls.Add($runtimeGroup)
 $runtimeGroup.Controls.Add((New-Label "模型配置" 18 32 90))
 $profileCombo = New-Object System.Windows.Forms.ComboBox
 $profileCombo.Location = New-Object System.Drawing.Point(110, 28)
-$profileCombo.Size = New-Object System.Drawing.Size(420, 28)
+$profileCombo.Size = New-Object System.Drawing.Size(760, 28)
+$profileCombo.DropDownWidth = 780
 $profileCombo.DropDownStyle = "DropDownList"
 $profiles = @(
   [pscustomobject]@{ Id = "quick_gpu"; Text = "快速体验：Qwen3 0.6B（下载小，先跑通）" },
@@ -469,55 +487,58 @@ $profiles = @(
   [pscustomobject]@{ Id = "minimal_cpu"; Text = "低资源/CPU：Qwen3 8B（可能较慢）" },
   [pscustomobject]@{ Id = "no_model_dev"; Text = "无模型开发：只装依赖和启动界面/API" }
 )
-$profileCombo.DataSource = $profiles
-$profileCombo.DisplayMember = "Text"
-$profileCombo.ValueMember = "Id"
-$profileCombo.SelectedValue = "quick_gpu"
+$profileCombo.Tag = $profiles
+foreach ($profile in $profiles) {
+  [void]$profileCombo.Items.Add([string]$profile.Text)
+}
+$profileCombo.SelectedIndex = 0
 $runtimeGroup.Controls.Add($profileCombo)
 
-$runtimeGroup.Controls.Add((New-Label "后端端口" 560 32 80))
+$runtimeGroup.Controls.Add((New-Label "后端" 18 70 48))
 $backendPort = New-Object System.Windows.Forms.NumericUpDown
-$backendPort.Location = New-Object System.Drawing.Point(640, 28)
+$backendPort.Location = New-Object System.Drawing.Point(74, 66)
+$backendPort.Size = New-Object System.Drawing.Size(70, 24)
 $backendPort.Minimum = 1024
 $backendPort.Maximum = 65535
 $backendPort.Value = 8000
 $runtimeGroup.Controls.Add($backendPort)
 
-$runtimeGroup.Controls.Add((New-Label "前端端口" 740 32 80))
+$runtimeGroup.Controls.Add((New-Label "前端" 170 70 48))
 $frontendPort = New-Object System.Windows.Forms.NumericUpDown
-$frontendPort.Location = New-Object System.Drawing.Point(820, 28)
+$frontendPort.Location = New-Object System.Drawing.Point(226, 66)
+$frontendPort.Size = New-Object System.Drawing.Size(70, 24)
 $frontendPort.Minimum = 1024
 $frontendPort.Maximum = 65535
 $frontendPort.Value = 5173
 $runtimeGroup.Controls.Add($frontendPort)
 
-$runtimeGroup.Controls.Add((New-Label "管理员用户" 18 70 90))
+$runtimeGroup.Controls.Add((New-Label "用户" 322 70 48))
 $adminUser = New-Object System.Windows.Forms.TextBox
-$adminUser.Location = New-Object System.Drawing.Point(110, 66)
-$adminUser.Size = New-Object System.Drawing.Size(160, 24)
+$adminUser.Location = New-Object System.Drawing.Point(376, 66)
+$adminUser.Size = New-Object System.Drawing.Size(145, 24)
 $adminUser.Text = "admin"
 $runtimeGroup.Controls.Add($adminUser)
 
-$runtimeGroup.Controls.Add((New-Label "管理员邮箱" 290 70 90))
+$runtimeGroup.Controls.Add((New-Label "邮箱" 18 104 48))
 $adminEmail = New-Object System.Windows.Forms.TextBox
-$adminEmail.Location = New-Object System.Drawing.Point(380, 66)
-$adminEmail.Size = New-Object System.Drawing.Size(220, 24)
+$adminEmail.Location = New-Object System.Drawing.Point(74, 100)
+$adminEmail.Size = New-Object System.Drawing.Size(316, 24)
 $adminEmail.Text = "admin@local.persona-rag"
 $runtimeGroup.Controls.Add($adminEmail)
 
-$runtimeGroup.Controls.Add((New-Label "管理员密码" 620 70 90))
+$runtimeGroup.Controls.Add((New-Label "密码" 548 70 48))
 $adminPassword = New-Object System.Windows.Forms.TextBox
-$adminPassword.Location = New-Object System.Drawing.Point(710, 66)
-$adminPassword.Size = New-Object System.Drawing.Size(170, 24)
+$adminPassword.Location = New-Object System.Drawing.Point(602, 66)
+$adminPassword.Size = New-Object System.Drawing.Size(180, 24)
 $adminPassword.Text = "admin123456"
 $runtimeGroup.Controls.Add($adminPassword)
 
-$authRequired = New-CheckBox "启用登录认证" 110 104 $true 160
-$installTools = New-CheckBox "自动安装缺失工具：uv、Node.js/npm、Ollama" 280 104 $true 320
-$installProjectDeps = New-CheckBox "安装项目依赖" 610 104 $true 140
-$pullModels = New-CheckBox "拉取所选模型" 760 104 $true 130
-$startApp = New-CheckBox "完成后启动服务" 110 136 $true 160
-$openBrowser = New-CheckBox "启动后打开浏览器" 280 136 $true 180
+$authRequired = New-CheckBox "启用登录认证" 420 100 $true 140
+$installTools = New-CheckBox "自动安装 uv / Node / Ollama" 110 132 $true 380
+$installProjectDeps = New-CheckBox "安装项目依赖" 510 132 $true 150
+$pullModels = New-CheckBox "拉取所选模型" 680 132 $true 160
+$startApp = New-CheckBox "完成后启动服务" 110 160 $true 160
+$openBrowser = New-CheckBox "启动后打开浏览器" 280 160 $true 180
 $runtimeGroup.Controls.AddRange(@($authRequired, $installTools, $installProjectDeps, $pullModels, $startApp, $openBrowser))
 
 $advancedGroup = New-Object System.Windows.Forms.GroupBox
@@ -526,59 +547,59 @@ $advancedGroup.Location = New-Object System.Drawing.Point(20, 434)
 $advancedGroup.Size = New-Object System.Drawing.Size(920, 145)
 $form.Controls.Add($advancedGroup)
 
-$advancedGroup.Controls.Add((New-Label "Ollama URL" 18 30 90))
+$advancedGroup.Controls.Add((New-Label "Ollama" 18 30 96))
 $ollamaUrl = New-Object System.Windows.Forms.TextBox
-$ollamaUrl.Location = New-Object System.Drawing.Point(110, 26)
-$ollamaUrl.Size = New-Object System.Drawing.Size(220, 24)
+$ollamaUrl.Location = New-Object System.Drawing.Point(122, 26)
+$ollamaUrl.Size = New-Object System.Drawing.Size(268, 24)
 $ollamaUrl.Text = "http://127.0.0.1:11434"
 $advancedGroup.Controls.Add($ollamaUrl)
 
-$advancedGroup.Controls.Add((New-Label "SQLite 路径" 350 30 80))
+$advancedGroup.Controls.Add((New-Label "数据" 410 30 60))
 $sqlitePath = New-Object System.Windows.Forms.TextBox
-$sqlitePath.Location = New-Object System.Drawing.Point(430, 26)
-$sqlitePath.Size = New-Object System.Drawing.Size(180, 24)
+$sqlitePath.Location = New-Object System.Drawing.Point(470, 26)
+$sqlitePath.Size = New-Object System.Drawing.Size(250, 24)
 $sqlitePath.Text = "data/sqlite/persona_rag.sqlite3"
 $advancedGroup.Controls.Add($sqlitePath)
 
-$advancedGroup.Controls.Add((New-Label "运行环境" 630 30 70))
+$advancedGroup.Controls.Add((New-Label "环境" 742 30 48))
 $envCombo = New-Object System.Windows.Forms.ComboBox
-$envCombo.Location = New-Object System.Drawing.Point(700, 26)
-$envCombo.Size = New-Object System.Drawing.Size(120, 24)
+$envCombo.Location = New-Object System.Drawing.Point(792, 26)
+$envCombo.Size = New-Object System.Drawing.Size(118, 24)
 $envCombo.DropDownStyle = "DropDownList"
 [void]$envCombo.Items.Add("dev")
 [void]$envCombo.Items.Add("prod")
 $envCombo.SelectedItem = "dev"
 $advancedGroup.Controls.Add($envCombo)
 
-$advancedGroup.Controls.Add((New-Label "DeepSeek Key" 18 66 90))
+$advancedGroup.Controls.Add((New-Label "DeepSeek" 18 66 96))
 $deepseekKey = New-Object System.Windows.Forms.TextBox
-$deepseekKey.Location = New-Object System.Drawing.Point(110, 62)
-$deepseekKey.Size = New-Object System.Drawing.Size(300, 24)
+$deepseekKey.Location = New-Object System.Drawing.Point(122, 62)
+$deepseekKey.Size = New-Object System.Drawing.Size(348, 24)
 $deepseekKey.UseSystemPasswordChar = $true
 $advancedGroup.Controls.Add($deepseekKey)
 
-$advancedGroup.Controls.Add((New-Label "SMTP Host" 430 66 80))
+$advancedGroup.Controls.Add((New-Label "主机" 500 66 60))
 $smtpHost = New-Object System.Windows.Forms.TextBox
-$smtpHost.Location = New-Object System.Drawing.Point(510, 62)
+$smtpHost.Location = New-Object System.Drawing.Point(560, 62)
 $smtpHost.Size = New-Object System.Drawing.Size(160, 24)
 $advancedGroup.Controls.Add($smtpHost)
 
-$advancedGroup.Controls.Add((New-Label "SMTP User" 690 66 80))
+$advancedGroup.Controls.Add((New-Label "用户" 742 66 48))
 $smtpUser = New-Object System.Windows.Forms.TextBox
-$smtpUser.Location = New-Object System.Drawing.Point(770, 62)
-$smtpUser.Size = New-Object System.Drawing.Size(120, 24)
+$smtpUser.Location = New-Object System.Drawing.Point(792, 62)
+$smtpUser.Size = New-Object System.Drawing.Size(118, 24)
 $advancedGroup.Controls.Add($smtpUser)
 
-$advancedGroup.Controls.Add((New-Label "SMTP From" 18 102 90))
+$advancedGroup.Controls.Add((New-Label "发件" 18 102 96))
 $smtpFrom = New-Object System.Windows.Forms.TextBox
-$smtpFrom.Location = New-Object System.Drawing.Point(110, 98)
-$smtpFrom.Size = New-Object System.Drawing.Size(220, 24)
+$smtpFrom.Location = New-Object System.Drawing.Point(122, 98)
+$smtpFrom.Size = New-Object System.Drawing.Size(268, 24)
 $advancedGroup.Controls.Add($smtpFrom)
 
-$advancedGroup.Controls.Add((New-Label "SMTP 密码" 350 102 80))
+$advancedGroup.Controls.Add((New-Label "密码" 410 102 60))
 $smtpPassword = New-Object System.Windows.Forms.TextBox
-$smtpPassword.Location = New-Object System.Drawing.Point(430, 98)
-$smtpPassword.Size = New-Object System.Drawing.Size(180, 24)
+$smtpPassword.Location = New-Object System.Drawing.Point(470, 98)
+$smtpPassword.Size = New-Object System.Drawing.Size(250, 24)
 $smtpPassword.UseSystemPasswordChar = $true
 $advancedGroup.Controls.Add($smtpPassword)
 
@@ -800,6 +821,12 @@ function Update-ProgressFromLog([string]$Text) {
 }
 
 function Get-SelectedProfileId($ComboBox) {
+  if ($ComboBox.Tag -and $ComboBox.SelectedIndex -ge 0) {
+    $profiles = @($ComboBox.Tag)
+    if ($ComboBox.SelectedIndex -lt $profiles.Count -and ($profiles[$ComboBox.SelectedIndex].PSObject.Properties.Name -contains "Id")) {
+      return [string]$profiles[$ComboBox.SelectedIndex].Id
+    }
+  }
   $selected = $ComboBox.SelectedItem
   if ($selected -and ($selected.PSObject.Properties.Name -contains "Id")) {
     return [string]$selected.Id
