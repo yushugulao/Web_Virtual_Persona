@@ -176,6 +176,124 @@ function Ensure-ParentDirectory([string]$Path) {
   }
 }
 
+function Format-ByteSize([long]$Bytes) {
+  if ($Bytes -lt 0) { return "unknown size" }
+  $units = @("B", "KiB", "MiB", "GiB")
+  $size = [double]$Bytes
+  $index = 0
+  while (($size -ge 1024) -and ($index -lt ($units.Count - 1))) {
+    $size = $size / 1024
+    $index += 1
+  }
+  if ($index -eq 0) { return ("{0} {1}" -f [int64]$size, $units[$index]) }
+  return ("{0:N2} {1}" -f $size, $units[$index])
+}
+
+function Test-FileMagic([string]$Path, [string]$ExpectedMagic) {
+  if (-not $ExpectedMagic) { return $true }
+  $expectedBytes = [System.Text.Encoding]::ASCII.GetBytes($ExpectedMagic)
+  $item = Get-Item -LiteralPath $Path
+  if ($item.Length -lt $expectedBytes.Length) { return $false }
+  $actualBytes = New-Object byte[] $expectedBytes.Length
+  $stream = [System.IO.File]::OpenRead($Path)
+  try {
+    [void]$stream.Read($actualBytes, 0, $actualBytes.Length)
+  } finally {
+    $stream.Dispose()
+  }
+  for ($i = 0; $i -lt $expectedBytes.Length; $i++) {
+    if ($actualBytes[$i] -ne $expectedBytes[$i]) { return $false }
+  }
+  return $true
+}
+
+function Invoke-DownloadFile(
+  [string]$Uri,
+  [string]$OutFile,
+  [string]$Label,
+  [int]$Retries = 3,
+  [string]$ExpectedMagic = ""
+) {
+  [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
+  Ensure-ParentDirectory $OutFile
+  $tempFile = "$OutFile.download"
+  $lastError = $null
+  for ($attempt = 1; $attempt -le $Retries; $attempt++) {
+    if (Test-Path -LiteralPath $tempFile) {
+      Remove-Item -LiteralPath $tempFile -Force
+    }
+    try {
+      Write-Host ("Downloading {0} (attempt {1}/{2})" -f $Label, $attempt, $Retries)
+      $request = [System.Net.HttpWebRequest]::Create($Uri)
+      $request.Method = "GET"
+      $request.UserAgent = "WebVirtualPersonaInstaller/1.0"
+      $request.AllowAutoRedirect = $true
+      $request.Timeout = 30000
+      $request.ReadWriteTimeout = 300000
+      $response = $request.GetResponse()
+      try {
+        $expectedLength = [int64]$response.ContentLength
+        if ($expectedLength -gt 0) {
+          Write-Host ("{0} size: {1}" -f $Label, (Format-ByteSize $expectedLength))
+        }
+        $inputStream = $response.GetResponseStream()
+        $outputStream = [System.IO.File]::Open($tempFile, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::None)
+        try {
+          $buffer = New-Object byte[] 1048576
+          $downloaded = [int64]0
+          $reportEvery = [int64](50 * 1024 * 1024)
+          $nextReport = $reportEvery
+          while ($true) {
+            $read = $inputStream.Read($buffer, 0, $buffer.Length)
+            if ($read -le 0) { break }
+            $outputStream.Write($buffer, 0, $read)
+            $downloaded += [int64]$read
+            if ($downloaded -ge $nextReport) {
+              if ($expectedLength -gt 0) {
+                $percent = ($downloaded / $expectedLength) * 100
+                Write-Host ("{0}: {1} / {2} ({3:N1}%)" -f $Label, (Format-ByteSize $downloaded), (Format-ByteSize $expectedLength), $percent)
+              } else {
+                Write-Host ("{0}: {1} downloaded" -f $Label, (Format-ByteSize $downloaded))
+              }
+              while ($downloaded -ge $nextReport) {
+                $nextReport += $reportEvery
+              }
+            }
+          }
+        } finally {
+          if ($outputStream) { $outputStream.Dispose() }
+          if ($inputStream) { $inputStream.Dispose() }
+        }
+      } finally {
+        if ($response) { $response.Dispose() }
+      }
+      $item = Get-Item -LiteralPath $tempFile
+      if ($expectedLength -gt 0 -and $item.Length -ne $expectedLength) {
+        throw "downloaded size $($item.Length) did not match expected size $expectedLength"
+      }
+      if ($item.Length -lt 1) {
+        throw "downloaded file is empty"
+      }
+      if (-not (Test-FileMagic -Path $tempFile -ExpectedMagic $ExpectedMagic)) {
+        throw "downloaded file did not look like the expected file type"
+      }
+      Move-Item -LiteralPath $tempFile -Destination $OutFile -Force
+      Write-Host ("Downloaded {0}: {1}" -f $Label, $OutFile)
+      return
+    } catch {
+      $lastError = $_
+      Write-Host ("Download failed for {0}: {1}" -f $Label, $_.Exception.Message)
+      if (Test-Path -LiteralPath $tempFile) {
+        Remove-Item -LiteralPath $tempFile -Force
+      }
+      if ($attempt -lt $Retries) {
+        Start-Sleep -Seconds ([Math]::Min(10, 2 * $attempt))
+      }
+    }
+  }
+  throw "Failed to download $Label from $Uri after $Retries attempts: $($lastError.Exception.Message)"
+}
+
 function Download-ProjectSource {
   if ((Test-ProjectDirectory $ProjectRoot) -and -not $cfg.replace_existing) {
     Write-Host "Using existing project directory: $ProjectRoot"
@@ -194,7 +312,7 @@ function Download-ProjectSource {
   Step "Downloading project source from $Repo@$Branch"
   New-Item -ItemType Directory -Force -Path $temp | Out-Null
   try {
-    Invoke-WebRequest -Uri $url -OutFile $zipPath
+    Invoke-DownloadFile -Uri $url -OutFile $zipPath -Label "project source archive" -ExpectedMagic "PK"
     Expand-Archive -LiteralPath $zipPath -DestinationPath $temp -Force
     $extracted = Get-ChildItem -Path $temp -Directory |
       Where-Object { $_.Name -like "*Web_Virtual_Persona*" -or $_.Name -like "*-$Branch" } |
@@ -474,7 +592,7 @@ function Ensure-Ollama {
   $downloadDir = Join-Path $ProjectRoot ".deploy\gui\downloads"
   New-Item -ItemType Directory -Force -Path $downloadDir | Out-Null
   $installer = Join-Path $downloadDir "OllamaSetup.exe"
-  Invoke-WebRequest -Uri "https://ollama.com/download/OllamaSetup.exe" -OutFile $installer
+  Invoke-DownloadFile -Uri "https://ollama.com/download/OllamaSetup.exe" -OutFile $installer -Label "Ollama Windows installer" -ExpectedMagic "MZ"
   Step "Running Ollama installer"
   Start-Process -FilePath $installer -Wait
   Refresh-Path
@@ -1121,7 +1239,7 @@ $script:CurrentStageIndex = -1
 $script:DeploymentStartedAt = $null
 $script:ProgressStages = @(
   [pscustomobject]@{ Key = "download"; Text = "下载项目源码"; Percent = 8; Pattern = "Downloading project source|Using existing project directory" },
-  [pscustomobject]@{ Key = "tools"; Text = "检查/安装工具"; Percent = 20; Pattern = "Checking and installing required tools|Installing uv|Installing Node\.js|Ollama is available|uv is available|Node\.js is available" },
+  [pscustomobject]@{ Key = "tools"; Text = "检查/安装工具"; Percent = 20; Pattern = "Checking and installing required tools|Installing uv|Installing Node\.js|Downloading official Ollama|Ollama Windows installer|Running Ollama installer|Ollama is available|uv is available|Node\.js is available" },
   [pscustomobject]@{ Key = "config"; Text = "写入本地配置"; Percent = 32; Pattern = "Writing local deployment configuration|Preparing local uninstaller|UNINSTALLER:|Updated portable deployment overrides|portable_deploy\.py" },
   [pscustomobject]@{ Key = "deps"; Text = "安装项目依赖"; Percent = 48; Pattern = "Installing backend and frontend dependencies|Bootstrap complete|bootstrap_windows\.ps1" },
   [pscustomobject]@{ Key = "document"; Text = "安装文档/OCR能力"; Percent = 62; Pattern = "Installing OCR runtime|Checking document reader|Document Reader Backend Check|Marker/Surya runtime ready|PaddleOCR-VL runtime ready" },
