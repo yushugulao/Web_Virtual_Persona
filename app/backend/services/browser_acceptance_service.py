@@ -15,6 +15,14 @@ from app.backend.services.feedback_service import read_persona_turn_feedback
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 DEFAULT_MATRIX_PATH = PROJECT_ROOT / "evals" / "questions" / "persona_browser_acceptance_matrix.json"
+EMPTY_MATRIX_PAYLOAD: dict[str, Any] = {
+    "schema_version": "1.0",
+    "description": "Browser acceptance matrix is not configured in this build.",
+    "default_thinking_effort": "medium",
+    "personas": [],
+    "categories": [],
+    "cases": [],
+}
 POSITIVE_ISSUES = {"good"}
 NEGATIVE_ISSUES = {
     "cardiness",
@@ -36,7 +44,7 @@ def load_browser_acceptance_matrix(
     category_id: str | None = None,
 ) -> BrowserAcceptanceMatrixResponse:
     path = matrix_path or DEFAULT_MATRIX_PATH
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload = json.loads(path.read_text(encoding="utf-8")) if path.exists() else dict(EMPTY_MATRIX_PAYLOAD)
     all_cases = list(payload.get("cases", []))
     cases = [
         case

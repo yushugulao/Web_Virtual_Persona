@@ -652,7 +652,7 @@ def _looks_like_seo(text: str) -> bool:
 
 
 def _looks_like_mojibake(text: str) -> bool:
-    markers = ["锟", "�", "ï¿½", "%ef%bf%bd"]
+    markers = ["锟", "\ufffd", "ï¿½", "%ef%bf%bd"]
     return any(marker in text for marker in markers)
 
 

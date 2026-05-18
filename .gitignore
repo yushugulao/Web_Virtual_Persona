@@ -16,6 +16,7 @@ app/frontend/vite.config.d.ts
 !.env.linux.example
 .env.local
 .deploy/
+.artifacts/
 secrets/
 *.pem
 *.key
