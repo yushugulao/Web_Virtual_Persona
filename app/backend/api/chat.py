@@ -1,3 +1,5 @@
+import json
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -20,6 +22,10 @@ from app.backend.services.metadata_store import MetadataStore
 from app.backend.services.model_service import release_model_for_effort, release_runtime_models
 from app.backend.services.persona_catalog_service import persona_display_name, resolve_chat_persona_id
 from app.backend.services.persona_service import get_persona
+from app.backend.services.public_persona_policy import (
+    public_user_persona_is_readonly_for_user,
+    sanitize_chat_response_for_public_persona,
+)
 from app.backend.services.session_opening import generate_session_opening
 
 
@@ -250,11 +256,14 @@ def get_chat_session_messages(
 @router.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest, user: AuthUser = Depends(require_user)) -> ChatResponse:
     request = _validate_request_session(request, user)
-    return await answer_chat(
+    response = await answer_chat(
         request,
         diagnostics_enabled=_diagnostics_enabled(request, user),
         user_context=RuntimeUserContext.from_auth_user(user),
     )
+    if public_user_persona_is_readonly_for_user(persona_id=request.persona_id, user_id=user.id):
+        return sanitize_chat_response_for_public_persona(response)
+    return response
 
 
 @router.post("/chat/release-effort-model", response_model=ReleaseEffortModelResponse)
@@ -283,11 +292,35 @@ async def release_runtime_model_endpoint(
 @router.post("/chat/stream")
 async def chat_stream(request: ChatRequest, user: AuthUser = Depends(require_user)) -> StreamingResponse:
     request = _validate_request_session(request, user)
+    events = stream_chat(
+        request,
+        diagnostics_enabled=_diagnostics_enabled(request, user),
+        user_context=RuntimeUserContext.from_auth_user(user),
+    )
+    if public_user_persona_is_readonly_for_user(persona_id=request.persona_id, user_id=user.id):
+        events = _sanitize_public_stream(events)
     return StreamingResponse(
-        stream_chat(
-            request,
-            diagnostics_enabled=_diagnostics_enabled(request, user),
-            user_context=RuntimeUserContext.from_auth_user(user),
-        ),
+        events,
         media_type="text/event-stream",
     )
+
+
+async def _sanitize_public_stream(events):
+    async for event in events:
+        yield _sanitize_public_stream_event(event)
+
+
+def _sanitize_public_stream_event(event: str) -> str:
+    prefix = "data: "
+    suffix = "\n\n"
+    if not event.startswith(prefix):
+        return event
+    try:
+        payload = json.loads(event[len(prefix) :].strip())
+    except json.JSONDecodeError:
+        return event
+    if payload.get("type") != "final" or not isinstance(payload.get("value"), dict):
+        return event
+    response = ChatResponse.model_validate(payload["value"])
+    payload["value"] = sanitize_chat_response_for_public_persona(response).model_dump(exclude_none=True)
+    return f"{prefix}{json.dumps(payload, ensure_ascii=False)}{suffix}"

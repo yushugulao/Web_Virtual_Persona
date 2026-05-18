@@ -1,0 +1,19 @@
+Timestamp: 2026-05-19T00:12:04.9581413+08:00
+Repository: https://github.com/yushugulao/Web_Virtual_Persona.git
+Evidence base branch: main
+Publish branch: codex/public-persona-gui-deploy-evidence
+Base HEAD: 37f4b7a0dc8c9dba788fc6600f394e0171150857
+Short HEAD: 37f4b7a
+Node: v24.11.1
+npm: 11.6.2
+uv: uv 0.11.3 (45da18ac3 2026-04-01 x86_64-pc-windows-msvc)
+PowerShell: 7.6.1
+
+Tracked deployment entrypoints:
+True bootstrap.ps1
+True install.ps1
+True scripts/deploy/windows_local_gui_deploy.ps1
+True scripts/deploy/windows_uninstall.ps1
+
+Git status at evidence capture:
+main...origin/main with public persona/community/test evidence changes pending

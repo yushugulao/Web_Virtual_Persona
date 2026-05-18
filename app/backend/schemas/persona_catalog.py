@@ -21,6 +21,8 @@ class PersonaCatalogCard(BaseModel):
     runtime_status: UserPersonaStatus = "ready"
     score: int = 0
     is_owner: bool = False
+    is_public: bool = False
+    published_at: float | None = None
 
 
 class UserPersonaDetail(PersonaCatalogCard):
@@ -43,6 +45,15 @@ class PersonaCatalogSearchResponse(BaseModel):
 
 class PersonaCatalogRecommendedResponse(BaseModel):
     candidates_considered: int = 0
+    results: list[PersonaCatalogCard] = Field(default_factory=list)
+
+
+class PersonaCatalogPublicResponse(BaseModel):
+    query: str = ""
+    sort: Literal["published_at", "score"] = "published_at"
+    offset: int = 0
+    limit: int = 24
+    total: int = 0
     results: list[PersonaCatalogCard] = Field(default_factory=list)
 
 

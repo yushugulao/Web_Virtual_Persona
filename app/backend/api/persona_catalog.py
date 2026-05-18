@@ -4,6 +4,7 @@ from app.backend.auth.dependencies import require_user
 from app.backend.document_reader import SUPPORTED_EXTENSIONS
 from app.backend.schemas.auth import AuthUser
 from app.backend.schemas.persona_catalog import (
+    PersonaCatalogPublicResponse,
     PersonaCatalogRecommendedResponse,
     PersonaCatalogSearchResponse,
     UserPersonaBuildArtifactsResponse,
@@ -34,6 +35,7 @@ from app.backend.services.metadata_store import MetadataStore
 from app.backend.services.persona_catalog_service import (
     create_draft_user_persona,
     get_user_persona_detail,
+    list_public_user_personas,
     list_my_user_personas,
     publish_user_persona,
     recommended_public_user_personas,
@@ -74,6 +76,31 @@ def recommended_catalog(
 ) -> PersonaCatalogRecommendedResponse:
     considered, results = recommended_public_user_personas(user_id=user.id, limit=limit)
     return PersonaCatalogRecommendedResponse(candidates_considered=considered, results=results)
+
+
+@router.get("/persona-catalog/public", response_model=PersonaCatalogPublicResponse)
+def public_user_persona_catalog(
+    q: str = Query(default="", max_length=120),
+    limit: int = Query(default=24, ge=1, le=60),
+    offset: int = Query(default=0, ge=0),
+    sort: str = Query(default="published_at", pattern="^(published_at|score)$"),
+    user: AuthUser = Depends(require_user),
+) -> PersonaCatalogPublicResponse:
+    total, results = list_public_user_personas(
+        query=q,
+        user_id=user.id,
+        limit=limit,
+        offset=offset,
+        sort=sort,
+    )
+    return PersonaCatalogPublicResponse(
+        query=q,
+        sort=sort,
+        offset=offset,
+        limit=limit,
+        total=total,
+        results=results,
+    )
 
 
 @router.get("/user-personas/mine", response_model=UserPersonaListResponse)
@@ -316,7 +343,7 @@ def publish_user_persona_endpoint(
     if detail is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="虚拟分身不存在。")
     if detail.runtime_status != "ready":
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="这个分身还没有准备好，暂时不能公开。")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="请先生成完成后再公开。")
     return detail
 
 

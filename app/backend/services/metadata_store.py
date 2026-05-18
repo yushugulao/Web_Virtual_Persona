@@ -1791,6 +1791,52 @@ class MetadataStore:
             return [persona for persona in personas if persona["owner_user_id"] != current_user_id]
         return personas
 
+    def count_public_user_personas(self, *, query: str = "") -> int:
+        self.initialize()
+        clean_query = re.sub(r"\s+", " ", query).strip().lower()
+        clauses, params = self._public_user_persona_search_clauses(clean_query)
+        where = " AND ".join(clauses)
+        with self._connect() as conn:
+            row = conn.execute(
+                f"""
+                SELECT COUNT(*) AS count
+                FROM user_personas
+                WHERE {where}
+                """,
+                params,
+            ).fetchone()
+        return int(row["count"] if row else 0)
+
+    def list_public_user_personas(
+        self,
+        *,
+        query: str = "",
+        limit: int = 24,
+        offset: int = 0,
+        sort: str = "published_at",
+    ) -> list[dict[str, Any]]:
+        self.initialize()
+        clean_query = re.sub(r"\s+", " ", query).strip().lower()
+        clauses, params = self._public_user_persona_search_clauses(clean_query)
+        where = " AND ".join(clauses)
+        order_by = (
+            "score DESC, COALESCE(published_at, updated_at) DESC, updated_at DESC"
+            if sort == "score"
+            else "COALESCE(published_at, updated_at) DESC, score DESC, updated_at DESC"
+        )
+        with self._connect() as conn:
+            rows = conn.execute(
+                f"""
+                SELECT *
+                FROM user_personas
+                WHERE {where}
+                ORDER BY {order_by}
+                LIMIT ? OFFSET ?
+                """,
+                [*params, limit, offset],
+            ).fetchall()
+        return [self._user_persona_row(row) for row in rows]
+
     def top_public_user_personas(
         self,
         *,
@@ -1870,6 +1916,18 @@ class MetadataStore:
                 (owner_user_id, persona_id),
             ).fetchone()
         return self._user_persona_row(updated) if updated is not None else None
+
+    def _public_user_persona_search_clauses(self, clean_query: str) -> tuple[list[str], list[Any]]:
+        clauses = ["is_public = 1", "runtime_status = 'ready'"]
+        params: list[Any] = []
+        if clean_query:
+            like = f"%{clean_query}%"
+            clauses.append(
+                "(LOWER(name) LIKE ? OR LOWER(short_description) LIKE ? "
+                "OR LOWER(description) LIKE ? OR LOWER(identity_tags_json) LIKE ?)"
+            )
+            params.extend([like, like, like, like])
+        return clauses, params
 
     def create_user_persona_build(
         self,

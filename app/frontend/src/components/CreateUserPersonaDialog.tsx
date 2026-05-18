@@ -4,6 +4,7 @@ import { CircleSlash, FileSearch, FileText, Plus, RefreshCw, X } from "lucide-re
 import {
   createUserPersonaDraft,
   deleteUserPersonaFile,
+  fetchStatus,
   fetchUserPersonaBuild,
   fetchUserPersonaFiles,
   rebuildUserPersona,
@@ -225,6 +226,11 @@ export function CreateUserPersonaDialog({ onClose, onCreated }: CreateUserPerson
     setBuildBusy(true);
     setNotice("");
     try {
+      const status = await fetchStatus();
+      if (!status.deepseek_api_key_configured) {
+        setNotice("请先在部署配置中填写 DeepSeek 密钥，再生成分身。");
+        return;
+      }
       const draft = await ensureDraft();
       const response = buildQuery.data?.status === "failed"
         ? await rebuildUserPersona(draft.id)
@@ -298,11 +304,8 @@ export function CreateUserPersonaDialog({ onClose, onCreated }: CreateUserPerson
         <form className="createPersonaForm" onSubmit={submit}>
           <div>
             <p className="eyebrow">创建虚拟分身</p>
-            <h2>先上传一切能代表它的资料</h2>
-            <p>
-              本阶段只完成强文件读取与上传底座；上传后会生成 Markdown、结构块和 provenance，
-              后续再进入整理、分类和知识库生成。
-            </p>
+            <h2>上传资料并生成可对话分身</h2>
+            <p>填写名称，上传资料，系统会解析文件并生成可用于对话的本地知识库。</p>
           </div>
           <label>
             <span>分身名称</span>
@@ -323,10 +326,10 @@ export function CreateUserPersonaDialog({ onClose, onCreated }: CreateUserPerson
               checked={webSearchEnabled}
               onChange={(event) => setWebSearchEnabled(event.target.checked)}
             />
-            联网搜索更多信息
+            联网搜索公开资料（可选）
           </label>
           <div className="uploadIntro">
-            上传你能想到的一切信息，包括简历、代码、对话记录、截图等与分身相关的一切
+            上传与分身相关的资料，例如简历、作品、文章、对话记录或截图。
           </div>
           <label
             className="personaUploadDropzone"
@@ -431,11 +434,11 @@ export function CreateUserPersonaDialog({ onClose, onCreated }: CreateUserPerson
             <small>
               {buildSucceeded
                 ? `已生成 ${createdDraft?.evidence_card_count ?? build?.evidence_card_count ?? 0} 张证据卡。`
-                : buildFailed
-                  ? build?.error || createdDraft?.build_error || "请检查资料质量后重试。"
+                  : buildFailed
+                    ? build?.error || createdDraft?.build_error || "请检查资料质量后重试。"
                   : buildIsRunning
                     ? "正在整理资料、提取事实、生成语气与证据卡。"
-                    : "上传资料完成后，可以启动 DeepSeek V4 Pro 构建。"}
+                    : "上传资料或填写描述后，可以开始生成分身。"}
             </small>
           </div>
           <div className="personaDetailActions">

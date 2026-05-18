@@ -1,0 +1,4 @@
+pytest_exit=0
+ruff_exit=0
+frontend_build_exit=0
+public_catalog_api_exit=0

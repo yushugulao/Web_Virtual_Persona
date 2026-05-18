@@ -4,6 +4,8 @@ from pathlib import Path
 import re
 
 from app.backend.schemas.personas import PersonaMaterialDocument, PersonaMaterialsResponse
+from app.backend.core.config import get_settings
+from app.backend.services.metadata_store import MetadataStore
 from app.backend.services.persona_service import (
     is_known_persona_id,
     normalize_persona_id,
@@ -17,8 +19,29 @@ MAX_PREVIEW_CHARS = 320
 MAX_SECTIONS = 6
 
 
-def get_persona_materials(persona_id: str | None, project_root: Path | None = None) -> PersonaMaterialsResponse:
+def get_persona_materials(
+    persona_id: str | None,
+    project_root: Path | None = None,
+    *,
+    user_id: str | None = None,
+    store: MetadataStore | None = None,
+) -> PersonaMaterialsResponse:
     root = (project_root or Path(".")).resolve()
+    access = _user_persona_material_access(persona_id, user_id=user_id, store=store)
+    if access == "not_found":
+        raise FileNotFoundError("虚拟分身不存在或不可访问。")
+    if access == "restricted_public":
+        effective_persona_id = str(persona_id or "")
+        return PersonaMaterialsResponse(
+            persona_id=effective_persona_id,
+            requested_persona_id=None,
+            corpus_paths=[],
+            retrieval_prefixes=[],
+            raw_source_paths=[],
+            source_urls=[],
+            documents=[],
+        )
+
     effective_persona_id = normalize_persona_id(persona_id)
     requested_persona_id = persona_id if persona_id and not is_known_persona_id(persona_id) else None
     persona = get_persona(effective_persona_id)
@@ -44,6 +67,26 @@ def get_persona_materials(persona_id: str | None, project_root: Path | None = No
         source_urls=persona.source_urls,
         documents=documents,
     )
+
+
+def _user_persona_material_access(
+    persona_id: str | None,
+    *,
+    user_id: str | None,
+    store: MetadataStore | None,
+) -> str:
+    candidate = (persona_id or "").strip()
+    if not candidate.startswith("user_persona_"):
+        return "owner_or_system"
+    active_store = store or MetadataStore(get_settings().sqlite_path)
+    row = active_store.get_user_persona(candidate)
+    if row is None or row["runtime_status"] != "ready":
+        return "not_found"
+    if user_id and row["owner_user_id"] == user_id:
+        return "owner_or_system"
+    if row["is_public"]:
+        return "restricted_public"
+    return "not_found"
 
 
 def _material_from_path(path: Path, root: Path) -> PersonaMaterialDocument | None:

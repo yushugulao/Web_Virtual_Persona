@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import random
 from typing import Any
 
 from app.backend.core.config import get_settings
@@ -38,10 +37,28 @@ def search_persona_catalog(*, query: str, user_id: str, limit: int = 24) -> list
     return combined[:limit]
 
 
+def list_public_user_personas(
+    *,
+    query: str,
+    user_id: str,
+    limit: int = 24,
+    offset: int = 0,
+    sort: str = "published_at",
+) -> tuple[int, list[PersonaCatalogCard]]:
+    store = metadata_store()
+    total = store.count_public_user_personas(query=query)
+    rows = store.list_public_user_personas(
+        query=query,
+        limit=limit,
+        offset=offset,
+        sort=sort,
+    )
+    return total, [_user_card(row, current_user_id=user_id) for row in rows]
+
+
 def recommended_public_user_personas(*, user_id: str, limit: int = 5) -> tuple[int, list[PersonaCatalogCard]]:
-    rows = metadata_store().top_public_user_personas(current_user_id=user_id, limit=20)
-    selected = random.sample(rows, k=min(limit, len(rows))) if rows else []
-    return len(rows), [_user_card(row, current_user_id=user_id) for row in selected]
+    rows = metadata_store().top_public_user_personas(current_user_id=None, limit=limit)
+    return len(rows), [_user_card(row, current_user_id=user_id) for row in rows]
 
 
 def list_my_user_personas(*, user_id: str) -> list[UserPersonaDetail]:
@@ -70,9 +87,10 @@ def get_user_persona_detail(*, persona_id: str, user_id: str) -> UserPersonaDeta
     row = metadata_store().get_user_persona(persona_id)
     if row is None:
         return None
-    if row["owner_user_id"] != user_id and not row["is_public"]:
+    is_owner = row["owner_user_id"] == user_id
+    if not is_owner and (not row["is_public"] or row["runtime_status"] != "ready"):
         return None
-    return _user_detail(row, current_user_id=user_id)
+    return _user_detail(row, current_user_id=user_id, redact_private=not is_owner)
 
 
 def publish_user_persona(*, persona_id: str, user_id: str) -> UserPersonaDetail | None:
@@ -123,7 +141,7 @@ def custom_persona_profile(persona_id: str) -> PersonaProfile | None:
         identity_tags=row["identity_tags"],
         source_note="用户创建的虚拟分身资料。",
         boundary_note="这个分身来自用户创建资料；没有资料支撑的细节应当保持谨慎。",
-        corpus_paths=[],
+        corpus_paths=[f"corpus/user_personas/{row['persona_id']}/*.md"],
         retrieval_prefixes=[f"corpus/user_personas/{row['persona_id']}/"],
         raw_source_paths=[],
         source_urls=[],
@@ -159,23 +177,23 @@ def _user_card(row: dict[str, Any], *, current_user_id: str) -> PersonaCatalogCa
         runtime_status=row["runtime_status"],
         score=int(row["score"]),
         is_owner=row["owner_user_id"] == current_user_id,
+        is_public=bool(row["is_public"]),
+        published_at=row["published_at"],
     )
 
 
-def _user_detail(row: dict[str, Any], *, current_user_id: str) -> UserPersonaDetail:
+def _user_detail(row: dict[str, Any], *, current_user_id: str, redact_private: bool = False) -> UserPersonaDetail:
     card = _user_card(row, current_user_id=current_user_id)
     return UserPersonaDetail(
         **card.model_dump(),
-        owner_user_id=row["owner_user_id"],
+        owner_user_id="" if redact_private else row["owner_user_id"],
         description=row["description"],
-        is_public=bool(row["is_public"]),
         web_search_enabled=bool(row.get("web_search_enabled", False)),
-        source_depth=row.get("source_depth", ""),
-        evidence_card_count=int(row.get("evidence_card_count", 0) or 0),
-        build_error=row.get("build_error", ""),
+        source_depth="" if redact_private else row.get("source_depth", ""),
+        evidence_card_count=0 if redact_private else int(row.get("evidence_card_count", 0) or 0),
+        build_error="" if redact_private else row.get("build_error", ""),
         created_at=float(row["created_at"]),
         updated_at=float(row["updated_at"]),
-        published_at=row["published_at"],
     )
 
 

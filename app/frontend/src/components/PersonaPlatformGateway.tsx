@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, BadgeCheck, Plus, Search, Sparkles } from "lucide-react";
+import { ArrowRight, Plus, Search, Sparkles } from "lucide-react";
 
 import {
   fetchMyUserPersonas,
-  fetchRecommendedPublicPersonas,
+  fetchPublicUserPersonas,
   publishUserPersona,
-  searchPersonaCatalog,
   unpublishUserPersona
 } from "../api";
 import { personaRuntimeStatusLabel, shortPersonaDescription } from "../frontendText";
@@ -16,6 +15,8 @@ import { ThemeArtifacts } from "./ThemeArtifacts";
 import { CreateUserPersonaDialog } from "./CreateUserPersonaDialog";
 
 type PlatformView = "home" | "public" | "mine";
+type PublicCatalogSort = "published_at" | "score";
+const PUBLIC_PAGE_SIZE = 24;
 
 type PersonaPlatformGatewayProps = {
   systemPersonas: PersonaProfile[];
@@ -41,7 +42,9 @@ function cardFromPersonaProfile(persona: PersonaProfile): PersonaCatalogCard {
     kind: "system",
     runtime_status: "ready",
     score: 0,
-    is_owner: false
+    is_owner: false,
+    is_public: true,
+    published_at: null
   };
 }
 
@@ -56,7 +59,9 @@ function cardFromUserPersonaDetail(persona: UserPersonaDetail): PersonaCatalogCa
     kind: persona.kind,
     runtime_status: persona.runtime_status,
     score: persona.score,
-    is_owner: persona.is_owner
+    is_owner: persona.is_owner,
+    is_public: persona.is_public,
+    published_at: persona.published_at
   };
 }
 
@@ -76,7 +81,11 @@ function profileFromPersonaCard(card: PersonaCatalogCard): PersonaProfile {
     retrieval_prefixes: [],
     raw_source_paths: [],
     source_urls: [],
-    suggested_questions: ["你最想让我从哪里开始讲？", "你通常会怎样回答这个问题？", "给我一个简洁的建议。"]
+    suggested_questions: ["你最想让我从哪里开始讲？", "你通常会怎样回答这个问题？", "给我一个简洁的建议。"],
+    kind: card.kind,
+    is_owner: card.is_owner,
+    is_public: card.is_public,
+    published_at: card.published_at
   };
 }
 
@@ -85,6 +94,35 @@ function PersonaCardAvatar({ card }: { card: PersonaCatalogCard }) {
     return <img src={card.avatar_url} alt="" />;
   }
   return <span>{card.avatar_label}</span>;
+}
+
+function formatPublishedAt(value?: number | null) {
+  if (!value) return "未公开";
+  return new Date(value * 1000).toLocaleDateString("zh-CN", {
+    month: "2-digit",
+    day: "2-digit"
+  });
+}
+
+function catalogCardMeta(card: PersonaCatalogCard) {
+  if (card.kind === "system") return "系统默认分身";
+  const visibility = card.is_public ? "已公开" : "私有";
+  const score = `分数 ${card.score}`;
+  const published = card.is_public && card.published_at ? `公开于 ${formatPublishedAt(card.published_at)}` : "";
+  return [visibility, score, published || personaRuntimeStatusLabel(card.runtime_status)].filter(Boolean).join(" · ");
+}
+
+function cardMatchesQuery(card: PersonaCatalogCard, query: string) {
+  const normalized = query.trim().toLowerCase();
+  if (!normalized) return true;
+  const haystack = [
+    card.name,
+    card.short_description,
+    card.runtime_status,
+    card.kind,
+    ...card.identity_tags
+  ].join(" ").toLowerCase();
+  return haystack.includes(normalized);
 }
 
 function PersonaCatalogCardView({
@@ -113,7 +151,7 @@ function PersonaCatalogCardView({
           ))}
         </div>
         <p>{card.short_description}</p>
-        <small>{card.kind === "user" ? `分数 ${card.score}` : "系统默认分身"}</small>
+        <small>{catalogCardMeta(card)}</small>
       </div>
       <div className="catalogPersonaActions">
         {onDetail ? (
@@ -157,10 +195,12 @@ function UserPersonaDetailDialog({
   onUpdated: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("");
   const card = cardFromUserPersonaDetail(persona);
 
   async function togglePublish() {
     setBusy(true);
+    setNotice("");
     try {
       if (persona.is_public) {
         await unpublishUserPersona(persona.id);
@@ -168,6 +208,8 @@ function UserPersonaDetailDialog({
         await publishUserPersona(persona.id);
       }
       await onUpdated();
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "公开状态更新失败。");
     } finally {
       setBusy(false);
     }
@@ -201,11 +243,28 @@ function UserPersonaDetailDialog({
           <span>状态</span>
           <strong>{personaRuntimeStatusLabel(persona.runtime_status)}</strong>
         </div>
+        <div className="traceLine">
+          <span>公开状态</span>
+          <strong>{persona.is_public ? "已公开" : "私有"}</strong>
+        </div>
+        {persona.is_public && persona.published_at ? (
+          <div className="traceLine">
+            <span>公开时间</span>
+            <strong>{formatPublishedAt(persona.published_at)}</strong>
+          </div>
+        ) : null}
+        {notice ? <p className="sessionNotice">{notice}</p> : null}
         <div className="personaDetailActions">
           <button type="button" className="ghostButton" onClick={onClose}>
             关闭
           </button>
-          <button type="button" className="ghostButton" disabled={busy} onClick={() => void togglePublish()}>
+          <button
+            type="button"
+            className="ghostButton"
+            disabled={busy || (!persona.is_public && persona.runtime_status !== "ready")}
+            onClick={() => void togglePublish()}
+            title={persona.runtime_status !== "ready" && !persona.is_public ? "请先生成完成后再公开" : undefined}
+          >
             {persona.is_public ? "取消公开" : "公开分身"}
           </button>
           <button
@@ -237,6 +296,8 @@ export function PersonaPlatformGateway({
   const [view, setView] = useState<PlatformView>(initialView);
   const [searchText, setSearchText] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [publicSort, setPublicSort] = useState<PublicCatalogSort>("published_at");
+  const [publicLimit, setPublicLimit] = useState(PUBLIC_PAGE_SIZE);
   const [detailPersona, setDetailPersona] = useState<UserPersonaDetail | null>(null);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [notice, setNotice] = useState("");
@@ -252,16 +313,19 @@ export function PersonaPlatformGateway({
     onNavigate?.(nextView);
   }
 
-  const searchQueryResult = useQuery({
-    queryKey: ["persona-catalog-search", searchQuery],
-    queryFn: () => searchPersonaCatalog(searchQuery),
-    enabled: view === "public" && Boolean(searchQuery.trim()),
-    staleTime: 30_000
-  });
+  useEffect(() => {
+    setPublicLimit(PUBLIC_PAGE_SIZE);
+  }, [publicSort, searchQuery]);
 
-  const recommendedQuery = useQuery({
-    queryKey: ["persona-catalog-recommended"],
-    queryFn: () => fetchRecommendedPublicPersonas(5),
+  const publicQuery = useQuery({
+    queryKey: ["persona-catalog-public", searchQuery, publicSort, publicLimit],
+    queryFn: () =>
+      fetchPublicUserPersonas({
+        query: searchQuery,
+        limit: publicLimit,
+        offset: 0,
+        sort: publicSort
+      }),
     enabled: view === "public",
     staleTime: 30_000
   });
@@ -360,6 +424,7 @@ export function PersonaPlatformGateway({
             onEnter={enterCard}
             onUpdated={async () => {
               await mineQuery.refetch();
+              await publicQuery.refetch();
               setDetailPersona(null);
             }}
           />
@@ -371,8 +436,12 @@ export function PersonaPlatformGateway({
     );
   }
 
-  const searchResults = searchQueryResult.data?.results ?? [];
-  const recommendations = recommendedQuery.data?.results ?? [];
+  const publicCards = publicQuery.data?.results ?? [];
+  const publicTotal = publicQuery.data?.total ?? 0;
+  const canLoadMorePublic = publicCards.length < publicTotal;
+  const filteredSystemCards = searchQuery
+    ? systemCards.filter((card) => cardMatchesQuery(card, searchQuery))
+    : systemCards;
   return (
     <main className={`personaGateway personaPlatformGateway personaPlatformPublic surfaceTransition theme-${theme}`}>
       <ThemeArtifacts theme={theme} />
@@ -404,34 +473,57 @@ export function PersonaPlatformGateway({
           搜索
         </button>
       </form>
-      {searchQuery ? (
-        <section className="catalogSection">
-          <h2>搜索结果</h2>
-          <div className="catalogGrid">
-            {searchResults.map((card) => (
-              <PersonaCatalogCardView key={card.id} card={card} onEnter={enterCard} />
-            ))}
-          </div>
-          {!searchQueryResult.isLoading && !searchResults.length ? <p className="sessionEmpty">没有找到匹配分身。</p> : null}
-        </section>
-      ) : null}
+      <div className="catalogToolbar" aria-label="公开分身排序">
+        <span>
+          {searchQuery ? `搜索：${searchQuery}` : "全部社区公开分身"}
+          {publicTotal ? ` · ${publicTotal} 个` : ""}
+        </span>
+        <div className="segmentedControl">
+          <button
+            type="button"
+            className={publicSort === "published_at" ? "active" : ""}
+            onClick={() => setPublicSort("published_at")}
+          >
+            最新公开
+          </button>
+          <button
+            type="button"
+            className={publicSort === "score" ? "active" : ""}
+            onClick={() => setPublicSort("score")}
+          >
+            分数优先
+          </button>
+        </div>
+      </div>
       <section className="catalogSection">
         <h2>系统默认虚拟分身</h2>
         <div className="catalogGrid">
-          {(loading ? [] : systemCards).map((card) => (
+          {(loading ? [] : filteredSystemCards).map((card) => (
             <PersonaCatalogCardView key={card.id} card={card} onEnter={enterCard} />
           ))}
         </div>
+        {searchQuery && !filteredSystemCards.length ? <p className="sessionEmpty">系统默认分身里没有匹配项。</p> : null}
       </section>
       <section className="catalogSection">
-        <h2>其他用户公开的虚拟分身</h2>
+        <h2>社区公开分身</h2>
         <div className="catalogGrid">
-          {recommendations.map((card) => (
+          {publicCards.map((card) => (
             <PersonaCatalogCardView key={card.id} card={card} onEnter={enterCard} />
           ))}
         </div>
-        {!recommendations.length ? (
-          <p className="sessionEmpty">暂时还没有可推荐的公开分身。等其他用户发布 ready 分身后，这里会随机展示五个。</p>
+        {!publicQuery.isLoading && !publicCards.length ? (
+          <p className="sessionEmpty">
+            {searchQuery ? "没有找到匹配的社区公开分身。" : "暂时还没有社区公开分身。ready 分身公开后会出现在这里。"}
+          </p>
+        ) : null}
+        {canLoadMorePublic ? (
+          <button
+            type="button"
+            className="ghostButton catalogLoadMore"
+            onClick={() => setPublicLimit((current) => current + PUBLIC_PAGE_SIZE)}
+          >
+            加载更多
+          </button>
         ) : null}
       </section>
     </main>

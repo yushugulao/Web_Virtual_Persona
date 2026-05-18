@@ -64,6 +64,8 @@ def start_user_persona_build(
     source_bundle = _build_source_bundle(store, owner_user_id, persona, settings=settings)
     if not _has_enough_input(source_bundle):
         raise PersonaBuildError("请先填写分身描述，或上传至少一个可解析文件。")
+    if not settings.deepseek_api_key:
+        raise PersonaBuildError("请先配置 DeepSeek 密钥，再生成分身。")
     build_id = f"build_{uuid.uuid4().hex}"
     artifact_dir = settings.data_dir / "user_personas" / owner_user_id / persona_id / "builds" / build_id
     input_hash = hashlib.sha256(

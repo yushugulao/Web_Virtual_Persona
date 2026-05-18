@@ -15,6 +15,7 @@ import type {
   LoginResponse,
   MemoryListResponse,
   MemoryStatsResponse,
+  PersonaCatalogPublicResponse,
   PersonaCatalogRecommendedResponse,
   PersonaCatalogSearchResponse,
   PersonaMaterialsResponse,
@@ -228,6 +229,27 @@ export async function fetchRecommendedPublicPersonas(limit = 5): Promise<Persona
   });
   if (!response.ok) {
     throw await parseApiError(response, "公开分身推荐失败");
+  }
+  return response.json();
+}
+
+export async function fetchPublicUserPersonas(options: {
+  query?: string;
+  limit?: number;
+  offset?: number;
+  sort?: "published_at" | "score";
+} = {}): Promise<PersonaCatalogPublicResponse> {
+  const params = new URLSearchParams({
+    q: options.query ?? "",
+    limit: String(options.limit ?? 24),
+    offset: String(options.offset ?? 0),
+    sort: options.sort ?? "published_at"
+  });
+  const response = await fetch(`${API_BASE}/persona-catalog/public?${params.toString()}`, {
+    headers: authHeaders()
+  });
+  if (!response.ok) {
+    throw await parseApiError(response, "公开分身列表请求失败");
   }
   return response.json();
 }

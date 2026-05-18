@@ -1,0 +1,19 @@
+{
+  "public_catalog_total": 1,
+  "public_catalog_ids": [
+    "user_persona_9611f1fa7ebb4df9a4bc3488992ded62"
+  ],
+  "public_ready_id": "user_persona_9611f1fa7ebb4df9a4bc3488992ded62",
+  "private_ready_id": "user_persona_9d51eae0249f40a490b56817a9f0dcd6",
+  "non_owner_public_material_document_count": 0,
+  "non_owner_private_materials_blocked": true,
+  "sanitized_citation_title": "公开分身资料",
+  "sanitized_citation_source_path": "公开分身资料",
+  "sanitized_citation_preview": "该分身资料详情仅创建者可见。",
+  "sanitized_selected_chunk_ids": [
+    "public_persona_citation_01"
+  ],
+  "sanitized_trace_notes": [
+    "公开分身资料详情仅创建者可见；本次返回已隐藏本地路径和原文预览。"
+  ]
+}

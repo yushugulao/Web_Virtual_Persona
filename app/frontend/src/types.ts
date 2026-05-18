@@ -380,6 +380,10 @@ export type PersonaProfile = {
   raw_source_paths?: string[];
   source_urls?: string[];
   suggested_questions: string[];
+  kind?: PersonaCardKind;
+  is_owner?: boolean;
+  is_public?: boolean;
+  published_at?: number | null;
 };
 
 export type PersonaCardKind = "system" | "user";
@@ -397,6 +401,8 @@ export type PersonaCatalogCard = {
   runtime_status: UserPersonaStatus;
   score: number;
   is_owner: boolean;
+  is_public?: boolean;
+  published_at?: number | null;
 };
 
 export type UserPersonaDetail = PersonaCatalogCard & {
@@ -419,6 +425,15 @@ export type PersonaCatalogSearchResponse = {
 
 export type PersonaCatalogRecommendedResponse = {
   candidates_considered: number;
+  results: PersonaCatalogCard[];
+};
+
+export type PersonaCatalogPublicResponse = {
+  query: string;
+  sort: "published_at" | "score";
+  offset: number;
+  limit: number;
+  total: number;
   results: PersonaCatalogCard[];
 };
 

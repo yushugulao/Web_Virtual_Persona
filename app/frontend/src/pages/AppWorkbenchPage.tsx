@@ -662,8 +662,16 @@ function profileFromUserPersonaDetail(persona: UserPersonaDetail): PersonaProfil
     retrieval_prefixes: [],
     raw_source_paths: [],
     source_urls: [],
-    suggested_questions: ["你最想让我从哪里开始讲？", "你通常会怎样回答这个问题？", "给我一个简洁的建议。"]
+    suggested_questions: ["你最想让我从哪里开始讲？", "你通常会怎样回答这个问题？", "给我一个简洁的建议。"],
+    kind: persona.kind,
+    is_owner: persona.is_owner,
+    is_public: persona.is_public,
+    published_at: persona.published_at
   };
+}
+
+function isReadonlyPublicUserPersona(persona: PersonaProfile | null | undefined) {
+  return Boolean(persona?.id.startsWith("user_persona_") && persona.is_owner === false && persona.is_public);
 }
 
 const AUTH_TOKEN_KEY = "persona_rag_auth_token";
@@ -774,6 +782,7 @@ export default function App() {
   const selectedSystemPersona = personas.find((persona) => persona.id === selectedPersonaId) ?? null;
   const hasSelectedPersona = Boolean(selectedPersonaId) && Boolean(selectedSystemPersona ?? selectedCustomPersona);
   const selectedPersona = selectedSystemPersona ?? selectedCustomPersona ?? fallbackPersonas[0];
+  const readonlyPublicPersona = isReadonlyPublicUserPersona(selectedPersona);
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [input, setInput] = useState("");
   const [thinkingEffort, setThinkingEffort] = useState<ThinkingEffort>(readStoredThinkingEffort);
@@ -1979,6 +1988,9 @@ export default function App() {
       </section>
 
       <section className="compactChatShell">
+        {readonlyPublicPersona ? (
+          <p className="sessionNotice publicPersonaNotice">这是其他用户公开的分身；你可以聊天，资料详情仅创建者可见。</p>
+        ) : null}
         <section
           ref={messageListRef}
           className="messageList compactMessages"

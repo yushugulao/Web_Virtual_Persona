@@ -1,0 +1,4 @@
+bootstrap.ps1 parse_errors=0
+install.ps1 parse_errors=0
+scripts\deploy\windows_local_gui_deploy.ps1 parse_errors=0
+scripts\deploy\windows_uninstall.ps1 parse_errors=0

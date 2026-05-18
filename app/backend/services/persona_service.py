@@ -125,7 +125,7 @@ def _custom_persona_profile(persona_id: str) -> PersonaProfile | None:
         identity_tags=row["identity_tags"],
         source_note="用户创建的虚拟分身资料。",
         boundary_note="这个分身来自用户创建资料；没有资料支撑的细节应当保持谨慎。",
-        corpus_paths=[],
+        corpus_paths=[f"corpus/user_personas/{row['persona_id']}/*.md"],
         retrieval_prefixes=[f"corpus/user_personas/{row['persona_id']}/"],
         raw_source_paths=[],
         source_urls=[],
