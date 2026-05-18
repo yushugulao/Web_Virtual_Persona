@@ -26,12 +26,12 @@ class WebResearchError(RuntimeError):
 
 SOURCE_FAMILY_BASE_SCORE = {
     "official": 0.95,
-    "authored": 0.9,
-    "repo": 0.82,
+    "authored": 0.62,
+    "repo": 0.38,
     "interview": 0.78,
     "encyclopedia": 0.72,
     "news": 0.62,
-    "social": 0.48,
+    "social": 0.36,
     "critique": 0.46,
     "weak_clue": 0.32,
 }
@@ -246,19 +246,26 @@ def build_research_queries(
     description = str(persona.get("description") or "").strip()
     keywords = _keywords_from_text(" ".join([description, *parsed_file_summaries]))
     base_terms = [name, *keywords[:8]]
-    queries = [
-        name,
-        f"{name} official profile",
-        f"{name} biography",
-        f"{name} interview",
-        f"{name} works projects",
-        f"{name} writing speech",
-        f"{name} GitHub",
-        f"{name} 中文 采访",
-        f"{name} 简历",
-        f"{name} 作品",
-    ]
+    if _contains_cjk(name):
+        queries = [
+            f'"{name}" 简介',
+            f'"{name}" 官方',
+            f'"{name}" 创始人',
+            f'"{name}" 采访',
+            f'"{name}" 演讲',
+            f'"{name}" 作品',
+        ]
+    else:
+        queries = [
+            f'"{name}" biography',
+            f'"{name}" official profile',
+            f'"{name}" interview',
+            f'"{name}" works',
+            f'"{name}" writing speech',
+        ]
     for keyword in keywords[:8]:
+        if _is_noisy_query_keyword(keyword):
+            continue
         queries.append(f"{name} {keyword}")
     if base_terms:
         queries.append(" ".join(base_terms[:5]))
@@ -309,6 +316,7 @@ def _crawl_and_score_sources(
     artifact_dir.mkdir(parents=True, exist_ok=True)
     crawled: list[dict[str, Any]] = []
     seen_hashes: set[str] = set()
+    seen_source_ids: set[str] = set()
     for candidate in candidates:
         page = crawler.crawl(candidate["url"])
         content_hash = page.content_hash or ""
@@ -327,7 +335,10 @@ def _crawl_and_score_sources(
         status = "candidate"
         if not page.warning and not duplicate and score >= 0.52:
             status = "included"
-        source_id = source_id_for(page.final_url or candidate["url"], content_hash)
+        source_id = f"{source_id_for(page.final_url or candidate['url'], content_hash)}_{run_id[-12:]}"
+        if source_id in seen_source_ids:
+            continue
+        seen_source_ids.add(source_id)
         source_dir = artifact_dir / source_id
         source_dir.mkdir(parents=True, exist_ok=True)
         markdown_path = source_dir / "document.md"
@@ -585,17 +596,21 @@ def _parsed_file_summaries(store: MetadataStore, owner_user_id: str, persona_id:
 def _source_family(url: str, title: str, text: str) -> str:
     host = urlparse_host(url)
     combined = f"{title} {text[:2000]}".lower()
-    if any(part in host for part in ["wikipedia.org", "wikidata.org", "baike.baidu.com"]):
+    if _is_official_host(host):
+        return "official"
+    if any(part in host for part in ["wikipedia.org", "wikidata.org", "baike.baidu.com", "baike.com", "mbalib.com", "baike.sogou.com"]):
         return "encyclopedia"
     if any(part in host for part in ["github.com", "gitlab.com", "gitee.com"]):
         return "repo"
+    if _is_low_trust_host(host):
+        return "weak_clue"
     if any(part in host for part in ["twitter.com", "x.com", "weibo.com", "zhihu.com", "reddit.com", "bilibili.com"]):
         return "social"
     if any(part in host for part in ["news", "nytimes", "bbc", "thepaper", "36kr", "techcrunch"]):
         return "news"
     if any(term in combined for term in ["interview", "采访", "podcast", "访谈"]):
         return "interview"
-    if any(term in combined for term in ["official", "官网", "about me", "bio", "profile"]):
+    if any(term in combined for term in ["official website", "官方网站", "官网", "about me"]):
         return "official"
     if any(term in combined for term in ["blog", "essay", "文章", "newsletter"]):
         return "authored"
@@ -618,16 +633,79 @@ def _source_score(
     body = f"{title} {text[:5000]}".lower()
     if name and name in body:
         score += 0.08
+    elif name:
+        score -= 0.28
     if len(text) < 400:
         score -= 0.22
     if _looks_like_seo(body):
         score -= 0.2
+    if _looks_like_mojibake(body):
+        score -= 0.35
+    if family in {"repo", "social", "weak_clue"} and _looks_like_same_name_noise(body):
+        score -= 0.22
     return max(0.0, min(1.0, score))
 
 
 def _looks_like_seo(text: str) -> bool:
     markers = ["coupon", "casino", "betting", "免费下载", "点击下载", "seo", "top 10"]
     return any(marker in text for marker in markers)
+
+
+def _looks_like_mojibake(text: str) -> bool:
+    markers = ["锟", "�", "ï¿½", "%ef%bf%bd"]
+    return any(marker in text for marker in markers)
+
+
+def _looks_like_same_name_noise(text: str) -> bool:
+    markers = [
+        "生成雷军声音",
+        "fish audio",
+        "仓库 - 雷军",
+        "github",
+        "gitee.com",
+        "csdn",
+        "51cto",
+        "点击查看",
+    ]
+    return any(marker in text for marker in markers)
+
+
+def _contains_cjk(value: str) -> bool:
+    return bool(re.search(r"[\u4e00-\u9fff]", value))
+
+
+def _is_noisy_query_keyword(keyword: str) -> bool:
+    lowered = keyword.lower()
+    noisy = {"github", "gitee", "csdn", "代码", "开发者", "程序", "项目"}
+    return lowered in noisy or keyword in noisy
+
+
+def _is_official_host(host: str) -> bool:
+    official_hosts = {
+        "mi.com",
+        "www.mi.com",
+        "mi.cn",
+        "www.mi.cn",
+        "xiaomi.com",
+        "www.xiaomi.com",
+        "ir.mi.com",
+    }
+    return host in official_hosts or host.endswith(".mi.com") or host.endswith(".xiaomi.com")
+
+
+def _is_low_trust_host(host: str) -> bool:
+    markers = [
+        "csdn.net",
+        "51cto.com",
+        "toutiao.com",
+        "sohu.com",
+        "douyin.com",
+        "jianshu.com",
+        "myzaker.com",
+        "wenku.baidu.com",
+        "blog.",
+    ]
+    return any(marker in host for marker in markers)
 
 
 def _keywords_from_text(text: str) -> list[str]:
