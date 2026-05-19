@@ -4,6 +4,7 @@ import json
 import sys
 import uuid
 from collections.abc import Iterator
+from email.message import EmailMessage
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -14,12 +15,14 @@ from app.backend.auth.auth_store import AuthStore
 from app.backend.auth.dependencies import require_user
 from app.backend.core.config import get_settings
 from app.backend.document_reader.reader import read_document
+from app.backend.persona_builder.pipeline import _build_source_bundle
 from app.backend.persona_builder.web_research import build_web_sources_for_deepseek, run_web_research
 from app.backend.persona_builder.web_research.adapters import CrawledPage, SearchCandidate, sha256_text
 from app.backend.schemas.auth import AuthUser
 from app.backend.schemas.chat import ChatRequest, ChatResponse
 from app.backend.schemas.common import Citation, TimingBreakdown
 from app.backend.schemas.retrieval import RetrievalTrace
+from app.backend.services.communication_source_service import parse_qq_export, redact_sensitive
 from app.backend.services.metadata_store import MetadataStore
 from app.rag.indexes.memory_store import clear_corpus_cache
 
@@ -443,6 +446,139 @@ def test_user_persona_upload_build_guard_web_research_and_public_catalog(
     assert any(item["id"] == persona_id for item in public_catalog.json()["results"])
     assert client.post(f"/user-personas/{persona_id}/unpublish").json()["is_public"] is False
     assert client.delete(f"/user-personas/{persona_id}/files/{file_id}").status_code == 200
+
+
+def test_communication_source_imports_enter_persona_materials(
+    isolated_app: SimpleNamespace,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = isolated_app.client
+    store = MetadataStore(isolated_app.sqlite_path)
+
+    draft = client.post(
+        "/user-personas/drafts",
+        json={
+            "name": "通信来源测试分身",
+            "description": "用于验证邮箱和 QQ 来源导入。",
+            "web_search_enabled": False,
+        },
+    ).json()
+    persona_id = draft["id"]
+
+    message = EmailMessage()
+    message["From"] = "sender@example.test"
+    message["To"] = "report-user@example.test"
+    message["Subject"] = "Persona-RAG live verification marker"
+    message["Date"] = "Tue, 19 May 2026 01:00:00 +0800"
+    message.set_content("验证码 123456，联系手机 13800138000。请用这封测试邮件验证邮箱导入。")
+
+    class FakeIMAP:
+        def __init__(self, host: str, port: int):
+            self.host = host
+            self.port = port
+
+        def login(self, email: str, password: str) -> tuple[str, list[bytes]]:
+            assert email == "report-user@example.test"
+            assert password == "authorization-code"
+            return "OK", []
+
+        def select(self, mailbox: str, readonly: bool = True) -> tuple[str, list[bytes]]:
+            assert mailbox == "INBOX"
+            assert readonly is True
+            return "OK", [b"1"]
+
+        def search(self, charset: None, *criteria: str) -> tuple[str, list[bytes]]:
+            assert charset is None
+            assert "SINCE" in criteria
+            return "OK", [b"1"]
+
+        def fetch(self, message_id: bytes, query: str) -> tuple[str, list[tuple[bytes, bytes]]]:
+            assert message_id == b"1"
+            assert query == "(RFC822)"
+            return "OK", [(b"RFC822", message.as_bytes())]
+
+        def logout(self) -> tuple[str, list[bytes]]:
+            return "OK", []
+
+    monkeypatch.setattr("app.backend.services.communication_source_service.imaplib.IMAP4_SSL", FakeIMAP)
+
+    email_import = client.post(
+        f"/user-personas/{persona_id}/email/import",
+        json={
+            "email_address": "report-user@example.test",
+            "password": "authorization-code",
+            "imap_host": "imap.example.test",
+            "imap_port": 993,
+            "subject_filter": "Persona-RAG live verification marker",
+            "max_messages": 1,
+        },
+    )
+    assert email_import.status_code == 200
+    assert email_import.json()["source_kind"] == "email"
+    assert email_import.json()["imported_records"] == 1
+    assert email_import.json()["redacted_items"] >= 2
+    parsed_email = client.get(
+        f"/user-personas/{persona_id}/files/{email_import.json()['file']['file_id']}/parsed"
+    ).json()
+    assert "[邮箱]" in parsed_email["markdown"]
+    assert "[手机号]" in parsed_email["markdown"]
+    assert "[验证码]" in parsed_email["markdown"]
+
+    qq_import = client.post(
+        f"/user-personas/{persona_id}/qq/import",
+        files=[
+            (
+                "files",
+                (
+                    "chat.txt",
+                    "2026-05-19 09:00 同学A: 这个方案今天能跑通吗？\n我: 可以，先保护隐私再建索引。\n".encode(),
+                    "text/plain",
+                ),
+            ),
+            (
+                "files",
+                (
+                    "chat.csv",
+                    "time,sender,message\n2026-05-19 09:01,我,QQ:12345678 不要入库原文\n".encode(),
+                    "text/csv",
+                ),
+            ),
+        ],
+    )
+    assert qq_import.status_code == 200
+    assert qq_import.json()["source_kind"] == "qq"
+    assert qq_import.json()["imported_records"] >= 2
+    parsed_qq = client.get(f"/user-personas/{persona_id}/files/{qq_import.json()['file']['file_id']}/parsed").json()
+    assert "QQ聊天风格材料" in parsed_qq["markdown"]
+    assert "QQ:[QQ号]" in parsed_qq["markdown"]
+
+    persona = store.get_user_persona(persona_id)
+    assert persona is not None
+    bundle = _build_source_bundle(store, "dev-auth-disabled", persona, settings=isolated_app.settings)
+    filenames = {item["filename"] for item in bundle["parsed_files"]}
+    assert email_import.json()["file"]["original_filename"] in filenames
+    assert qq_import.json()["file"]["original_filename"] in filenames
+
+
+def test_qq_parser_formats_and_redaction() -> None:
+    redacted, count = redact_sensitive(
+        "邮箱 a@example.com 手机 13800138000 QQ:12345678 验证码 123456 token abcdefghijklmnopqrstuvwxyz123456"
+    )
+    assert count >= 5
+    assert "a@example.com" not in redacted
+    assert "13800138000" not in redacted
+    assert "12345678" not in redacted
+
+    samples = [
+        ("chat.json", b'[{"time":"2026-05-19","sender":"A","message":"json message"}]'),
+        ("chat.csv", "time,sender,message\n2026-05-19,A,csv message\n".encode()),
+        ("chat.html", "<p>2026-05-19 10:00 A: html message</p>".encode()),
+        ("chat.txt", "2026-05-19 10:00 A: txt message\n".encode()),
+    ]
+    for filename, content in samples:
+        records, skipped = parse_qq_export(filename=filename, content=content)
+        assert records, filename
+        assert skipped == 0
 
 
 def test_document_reader_basic_files_and_capability_scripts(tmp_path: Path) -> None:

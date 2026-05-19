@@ -6862,6 +6862,66 @@ h3 {
   color: rgba(20, 32, 42, 0.82);
 }
 
+.communicationSourceGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.communicationSourceCard {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  padding: 13px;
+  border: 1px solid rgba(20, 32, 42, 0.14);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.communicationSourceHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(20, 32, 42, 0.86);
+}
+
+.communicationSourceCard small {
+  min-width: 0;
+  color: rgba(20, 32, 42, 0.58);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.communicationSourceFields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.communicationSourceFields .wide {
+  grid-column: 1 / -1;
+}
+
+.qqSourcePicker {
+  display: grid;
+  min-height: 42px;
+  place-items: center;
+  border: 1px dashed rgba(20, 32, 42, 0.24);
+  border-radius: 12px;
+  padding: 10px;
+  cursor: pointer;
+  color: rgba(20, 32, 42, 0.74);
+  background: rgba(255, 255, 255, 0.52);
+}
+
+.qqSourcePicker input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .personaUploadDropzone {
   display: grid;
   place-items: center;
@@ -7018,6 +7078,16 @@ h3 {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .communicationSourceGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .communicationSourceFields {
+    grid-template-columns: 1fr;
+  }
 }
 
 .personaDetailClose {

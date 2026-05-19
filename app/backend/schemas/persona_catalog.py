@@ -8,6 +8,7 @@ UserPersonaStatus = Literal["draft", "building", "ready", "error"]
 UserPersonaBuildStatus = Literal["queued", "running", "succeeded", "failed"]
 UserPersonaWebResearchStatus = Literal["queued", "running", "succeeded", "failed"]
 UserPersonaWebSourceStatus = Literal["candidate", "included", "excluded"]
+CommunicationSourceKind = Literal["email", "qq"]
 
 
 class PersonaCatalogCard(BaseModel):
@@ -102,6 +103,27 @@ class UserPersonaParsedFileResponse(BaseModel):
     diagnostics: list[dict] = Field(default_factory=list)
     parser_candidates: list[dict] = Field(default_factory=list)
     quality_summary: dict = Field(default_factory=dict)
+
+
+class UserPersonaEmailImportRequest(BaseModel):
+    email_address: str = Field(min_length=3, max_length=254)
+    password: str = Field(min_length=1, max_length=512)
+    imap_host: str = Field(default="imap.163.com", min_length=1, max_length=255)
+    imap_port: int = Field(default=993, ge=1, le=65535)
+    use_ssl: bool = True
+    mailbox: str = Field(default="INBOX", min_length=1, max_length=120)
+    subject_filter: str = Field(default="", max_length=240)
+    since_days: int = Field(default=1, ge=1, le=30)
+    max_messages: int = Field(default=5, ge=1, le=50)
+
+
+class UserPersonaCommunicationImportResponse(BaseModel):
+    source_kind: CommunicationSourceKind
+    imported_records: int = 0
+    redacted_items: int = 0
+    skipped_records: int = 0
+    file: UserPersonaFileItem
+    stats: dict = Field(default_factory=dict)
 
 
 class UserPersonaBuildStatusResponse(BaseModel):

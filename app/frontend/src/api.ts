@@ -27,7 +27,9 @@ import type {
   StreamStageEvent,
   ThemePreferenceResponse,
   ThinkingEffort,
+  UserPersonaCommunicationImportResponse,
   UserPersonaDraftCreatePayload,
+  UserPersonaEmailImportPayload,
   UserPersonaBuildArtifactsResponse,
   UserPersonaBuildStatusResponse,
   UserPersonaDetail,
@@ -397,6 +399,40 @@ export async function deleteUserPersonaFile(personaId: string, fileId: string): 
   );
   if (!response.ok) {
     throw await parseApiError(response, "删除上传文件失败");
+  }
+  return response.json();
+}
+
+export async function importUserPersonaEmailSource(
+  personaId: string,
+  payload: UserPersonaEmailImportPayload
+): Promise<UserPersonaCommunicationImportResponse> {
+  const response = await fetch(`${API_BASE}/user-personas/${encodeURIComponent(personaId)}/email/import`, {
+    method: "POST",
+    headers: { ...authHeaders(), "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+  if (!response.ok) {
+    throw await parseApiError(response, "导入邮箱来源失败");
+  }
+  return response.json();
+}
+
+export async function importUserPersonaQqSource(
+  personaId: string,
+  files: File[]
+): Promise<UserPersonaCommunicationImportResponse> {
+  const formData = new FormData();
+  for (const file of files) {
+    formData.append("files", file);
+  }
+  const response = await fetch(`${API_BASE}/user-personas/${encodeURIComponent(personaId)}/qq/import`, {
+    method: "POST",
+    headers: authHeaders(),
+    body: formData
+  });
+  if (!response.ok) {
+    throw await parseApiError(response, "导入 QQ 聊天记录失败");
   }
   return response.json();
 }

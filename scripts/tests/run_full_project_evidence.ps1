@@ -23,10 +23,32 @@ $UninstallFixtureDir = Join-Path $ArtifactDir "uninstall-fixture"
 New-Item -ItemType Directory -Force -Path $LogDir, $ApiDir, $ScreenshotDir | Out-Null
 
 $script:Results = New-Object System.Collections.Generic.List[object]
+$script:SecretValues = @()
+
+function Update-SecretValues {
+  $names = @(
+    "PERSONA_RAG_DEEPSEEK_API_KEY",
+    "PERSONA_RAG_SMTP_USERNAME",
+    "PERSONA_RAG_SMTP_PASSWORD",
+    "PERSONA_RAG_SMTP_FROM",
+    "PERSONA_RAG_LIVE_EMAIL_RECIPIENT"
+  )
+  $values = New-Object System.Collections.Generic.List[string]
+  foreach ($name in $names) {
+    $value = [Environment]::GetEnvironmentVariable($name)
+    if (-not [string]::IsNullOrWhiteSpace($value) -and $value.Length -ge 4) {
+      $values.Add($value) | Out-Null
+    }
+  }
+  $script:SecretValues = @($values | Sort-Object Length -Descending -Unique)
+}
 
 function Redact-Text([string]$Text) {
   if ($null -eq $Text) { return "" }
   $value = $Text
+  foreach ($secret in $script:SecretValues) {
+    $value = $value.Replace($secret, "<REDACTED>")
+  }
   $value = $value -replace '(?i)(authorization:\s*bearer\s+)[A-Za-z0-9._~+/=-]+', '$1<REDACTED>'
   $value = $value -replace '(?i)(token["'']?\s*[:=]\s*["'']?)[A-Za-z0-9._~+/=-]{12,}', '$1<REDACTED>'
   $value = $value -replace '(?i)(api[_-]?key["'']?\s*[:=]\s*["'']?)[A-Za-z0-9._~+/=-]{8,}', '$1<REDACTED>'
@@ -163,6 +185,7 @@ function Complete-Results {
 }
 
 try {
+  Update-SecretValues
   New-TestMatrix
 
   $envReport = [PSCustomObject]@{
@@ -178,6 +201,10 @@ try {
       "PERSONA_RAG_OLLAMA_BASE_URL",
       "PERSONA_RAG_WEB_RESEARCH_ENABLED",
       "PERSONA_RAG_SMTP_HOST",
+      "PERSONA_RAG_SMTP_USERNAME",
+      "PERSONA_RAG_SMTP_PASSWORD",
+      "PERSONA_RAG_IMAP_HOST",
+      "PERSONA_RAG_IMAP_PORT",
       "DOCUMENT_READER_ENABLE_PADDLEOCR_VL",
       "DOCUMENT_READER_ENABLE_MARKER_SURYA"
     ) | ForEach-Object {
@@ -281,11 +308,14 @@ try {
       exit 2
     }
   }
+  Invoke-EvidenceCommand -Name "external_live_checks" -ScriptBlock {
+    uv run python scripts/tests/live_external_checks.py --artifact-dir $ArtifactDir
+  }
 
   $optional = [PSCustomObject]@{
-    deepseek_live = if ([string]::IsNullOrWhiteSpace($env:PERSONA_RAG_DEEPSEEK_API_KEY)) { "SKIPPED: PERSONA_RAG_DEEPSEEK_API_KEY missing" } else { "CONFIGURED" }
-    smtp_live = if ([string]::IsNullOrWhiteSpace($env:PERSONA_RAG_SMTP_HOST)) { "SKIPPED: PERSONA_RAG_SMTP_HOST missing" } else { "CONFIGURED" }
-    email_qq_source_api = "GAP: no /persona-sources/email or /persona-sources/qq API is exposed in this branch"
+    deepseek_live = if ([string]::IsNullOrWhiteSpace($env:PERSONA_RAG_DEEPSEEK_API_KEY)) { "SKIPPED: PERSONA_RAG_DEEPSEEK_API_KEY missing" } else { "CONFIGURED: see api/live_external_checks.json" }
+    smtp_live = if ([string]::IsNullOrWhiteSpace($env:PERSONA_RAG_SMTP_HOST)) { "SKIPPED: PERSONA_RAG_SMTP_HOST missing" } else { "CONFIGURED: see api/live_external_checks.json" }
+    email_qq_source_api = "IMPLEMENTED: /user-personas/{persona_id}/email/import and /user-personas/{persona_id}/qq/import"
     isolated_deploy_dir = $DeployTestDir
     screenshots_dir = $ScreenshotDir
   }

@@ -483,6 +483,27 @@ export type UserPersonaParsedFileResponse = {
   quality_summary: Record<string, unknown>;
 };
 
+export type UserPersonaEmailImportPayload = {
+  email_address: string;
+  password: string;
+  imap_host: string;
+  imap_port: number;
+  use_ssl: boolean;
+  mailbox: string;
+  subject_filter: string;
+  since_days: number;
+  max_messages: number;
+};
+
+export type UserPersonaCommunicationImportResponse = {
+  source_kind: "email" | "qq";
+  imported_records: number;
+  redacted_items: number;
+  skipped_records: number;
+  file: UserPersonaFileItem;
+  stats: Record<string, unknown>;
+};
+
 export type UserPersonaBuildStatusResponse = {
   build_id: string;
   persona_id: string;

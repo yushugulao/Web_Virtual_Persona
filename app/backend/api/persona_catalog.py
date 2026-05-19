@@ -9,7 +9,9 @@ from app.backend.schemas.persona_catalog import (
     PersonaCatalogSearchResponse,
     UserPersonaBuildArtifactsResponse,
     UserPersonaBuildStatusResponse,
+    UserPersonaCommunicationImportResponse,
     UserPersonaDraftCreateRequest,
+    UserPersonaEmailImportRequest,
     UserPersonaDetail,
     UserPersonaFileItem,
     UserPersonaFileListResponse,
@@ -32,6 +34,10 @@ from app.backend.persona_builder.web_research import (
     run_web_research,
 )
 from app.backend.services.metadata_store import MetadataStore
+from app.backend.services.communication_source_service import (
+    import_email_source,
+    import_qq_source,
+)
 from app.backend.services.persona_catalog_service import (
     create_draft_user_persona,
     get_user_persona_detail,
@@ -317,6 +323,66 @@ def get_user_persona_parsed_file(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="文件不存在。")
     payload = parsed_file_payload(row)
     return UserPersonaParsedFileResponse(file=_file_item(row), **{k: v for k, v in payload.items() if k != "file"})
+
+
+@router.post("/user-personas/{persona_id}/email/import", response_model=UserPersonaCommunicationImportResponse)
+def import_user_persona_email_source(
+    persona_id: str,
+    payload: UserPersonaEmailImportRequest,
+    user: AuthUser = Depends(require_user),
+) -> UserPersonaCommunicationImportResponse:
+    try:
+        result = import_email_source(
+            user_id=user.id,
+            persona_id=persona_id,
+            email_address=payload.email_address,
+            password=payload.password,
+            imap_host=payload.imap_host,
+            imap_port=payload.imap_port,
+            use_ssl=payload.use_ssl,
+            mailbox=payload.mailbox,
+            subject_filter=payload.subject_filter,
+            since_days=payload.since_days,
+            max_messages=payload.max_messages,
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except OSError as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=f"邮箱连接失败：{exc}") from exc
+    return UserPersonaCommunicationImportResponse(
+        source_kind=result.source_kind,
+        imported_records=result.imported_records,
+        redacted_items=result.redacted_items,
+        skipped_records=result.skipped_records,
+        file=_file_item(result.file),
+        stats=result.stats,
+    )
+
+
+@router.post("/user-personas/{persona_id}/qq/import", response_model=UserPersonaCommunicationImportResponse)
+async def import_user_persona_qq_source(
+    persona_id: str,
+    files: list[UploadFile] = File(...),
+    user: AuthUser = Depends(require_user),
+) -> UserPersonaCommunicationImportResponse:
+    if not files:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="请先选择 QQ 聊天记录文件。")
+    try:
+        result = await import_qq_source(user_id=user.id, persona_id=persona_id, files=files)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return UserPersonaCommunicationImportResponse(
+        source_kind=result.source_kind,
+        imported_records=result.imported_records,
+        redacted_items=result.redacted_items,
+        skipped_records=result.skipped_records,
+        file=_file_item(result.file),
+        stats=result.stats,
+    )
 
 
 @router.delete("/user-personas/{persona_id}/files/{file_id}")

@@ -166,6 +166,96 @@ def parse_uploaded_file(*, file_id: str) -> None:
     )
 
 
+def save_generated_markdown_file(
+    *,
+    user_id: str,
+    persona_id: str,
+    filename: str,
+    markdown: str,
+    parser_chain: list[str],
+    quality_score: float = 0.85,
+    warnings: list[str] | None = None,
+) -> dict:
+    ensure_persona_owner(persona_id=persona_id, user_id=user_id)
+    clean_filename = sanitize_filename(filename)
+    if extension_from_filename(clean_filename) != "md":
+        clean_filename = f"{clean_filename}.md"
+    store = metadata_store()
+    if store.count_user_persona_files(owner_user_id=user_id, persona_id=persona_id) >= MAX_PERSONA_FILES:
+        raise ValueError(f"每个分身最多上传 {MAX_PERSONA_FILES} 个文件。")
+
+    file_id = uuid.uuid4().hex
+    base_dir = _upload_base_dir(user_id, persona_id, file_id)
+    raw_dir = base_dir / "raw"
+    parsed_dir = base_dir / "parsed"
+    raw_dir.mkdir(parents=True, exist_ok=True)
+    parsed_dir.mkdir(parents=True, exist_ok=True)
+    raw_path = raw_dir / clean_filename
+    raw_path.write_text(markdown, encoding="utf-8")
+    digest = sha256_file(raw_path)
+    row = store.create_user_persona_file(
+        file_id=file_id,
+        persona_id=persona_id,
+        owner_user_id=user_id,
+        original_filename=clean_filename,
+        stored_filename=clean_filename,
+        mime_type="text/markdown",
+        extension="md",
+        size_bytes=raw_path.stat().st_size,
+        sha256=digest,
+        raw_path=str(raw_path),
+        parse_status="parsed",
+    )
+    markdown_path = parsed_dir / "document.md"
+    blocks_path = parsed_dir / "blocks.json"
+    provenance_path = parsed_dir / "provenance.json"
+    diagnostics_path = parsed_dir / "diagnostics.json"
+    markdown_path.write_text(markdown, encoding="utf-8")
+    blocks_path.write_text(
+        json.dumps(
+            [
+                {
+                    "type": "text",
+                    "text": markdown[:5000],
+                    "source": clean_filename,
+                }
+            ],
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    provenance_path.write_text(
+        json.dumps([{"source": clean_filename, "kind": "generated_markdown"}], ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    diagnostics_path.write_text(
+        json.dumps(
+            {
+                "pages": [],
+                "parser_candidates": [],
+                "quality_summary": {"generated_source": True, "filename": clean_filename},
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    updated = store.update_user_persona_file_parse_result(
+        file_id=file_id,
+        parse_status="parsed",
+        parser_chain=parser_chain,
+        quality_score=quality_score,
+        warnings=warnings or [],
+        parsed_markdown_path=str(markdown_path),
+        blocks_path=str(blocks_path),
+        provenance_path=str(provenance_path),
+        diagnostics_path=str(diagnostics_path),
+        page_count=None,
+    )
+    return updated or row
+
+
 def parsed_file_payload(row: dict) -> dict:
     markdown = ""
     blocks: list[dict] = []

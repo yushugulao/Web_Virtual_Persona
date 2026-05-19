@@ -1,12 +1,14 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { CircleSlash, FileSearch, FileText, Plus, RefreshCw, X } from "lucide-react";
+import { CircleSlash, FileSearch, FileText, Mail, MessagesSquare, Plus, RefreshCw, X } from "lucide-react";
 import {
   createUserPersonaDraft,
   deleteUserPersonaFile,
   fetchStatus,
   fetchUserPersonaBuild,
   fetchUserPersonaFiles,
+  importUserPersonaEmailSource,
+  importUserPersonaQqSource,
   rebuildUserPersona,
   startUserPersonaBuild,
   uploadUserPersonaFile
@@ -47,6 +49,16 @@ export function CreateUserPersonaDialog({ onClose, onCreated }: CreateUserPerson
   const [createdDraft, setCreatedDraft] = useState<UserPersonaDetail | null>(null);
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
+  const [emailAddress, setEmailAddress] = useState("");
+  const [emailPassword, setEmailPassword] = useState("");
+  const [emailHost, setEmailHost] = useState("imap.163.com");
+  const [emailPort, setEmailPort] = useState(993);
+  const [emailSubjectFilter, setEmailSubjectFilter] = useState("");
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [emailImportSummary, setEmailImportSummary] = useState("");
+  const [qqFiles, setQqFiles] = useState<File[]>([]);
+  const [qqBusy, setQqBusy] = useState(false);
+  const [qqImportSummary, setQqImportSummary] = useState("");
   const [deletingFileIds, setDeletingFileIds] = useState<Set<string>>(() => new Set());
   const [buildStarted, setBuildStarted] = useState(false);
   const [buildBusy, setBuildBusy] = useState(false);
@@ -249,6 +261,66 @@ export function CreateUserPersonaDialog({ onClose, onCreated }: CreateUserPerson
     }
   }
 
+  async function importEmailSource() {
+    if (!name.trim()) {
+      setNotice("请先填写分身名称。");
+      return;
+    }
+    if (!emailAddress.trim() || !emailPassword.trim()) {
+      setNotice("请填写邮箱地址和 IMAP 授权码。");
+      return;
+    }
+    setEmailBusy(true);
+    setNotice("");
+    try {
+      const draft = await ensureDraft();
+      const result = await importUserPersonaEmailSource(draft.id, {
+        email_address: emailAddress.trim(),
+        password: emailPassword,
+        imap_host: emailHost.trim() || "imap.163.com",
+        imap_port: emailPort || 993,
+        use_ssl: true,
+        mailbox: "INBOX",
+        subject_filter: emailSubjectFilter.trim(),
+        since_days: 1,
+        max_messages: 5
+      });
+      setEmailPassword("");
+      setEmailImportSummary(importSummaryText(result.imported_records, result.redacted_items, result.skipped_records));
+      await parsedFilesQuery.refetch();
+      setNotice("邮箱来源已脱敏并入库。");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "导入邮箱来源失败。");
+    } finally {
+      setEmailBusy(false);
+    }
+  }
+
+  async function importQqSource() {
+    if (!name.trim()) {
+      setNotice("请先填写分身名称。");
+      return;
+    }
+    if (!qqFiles.length) {
+      setNotice("请先选择 QQ 聊天记录文件。");
+      return;
+    }
+    setQqBusy(true);
+    setNotice("");
+    try {
+      const draft = await ensureDraft();
+      const result = await importUserPersonaQqSource(draft.id, qqFiles);
+      setQqImportSummary(importSummaryText(result.imported_records, result.redacted_items, result.skipped_records));
+      setQqFiles([]);
+      await parsedFilesQuery.refetch();
+      setNotice("QQ 聊天记录已脱敏并入库。");
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "导入 QQ 聊天记录失败。");
+    } finally {
+      setQqBusy(false);
+    }
+  }
+
   async function removeCandidate(item: UploadCandidate) {
     removedCandidates.current.add(item.id);
     uploadControllers.current.get(item.id)?.abort();
@@ -328,6 +400,75 @@ export function CreateUserPersonaDialog({ onClose, onCreated }: CreateUserPerson
             />
             联网搜索公开资料（可选）
           </label>
+          <div className="communicationSourceGrid" aria-label="通信来源导入">
+            <section className="communicationSourceCard">
+              <div className="communicationSourceHeader">
+                <Mail size={18} />
+                <strong>邮箱来源</strong>
+              </div>
+              <small>使用 IMAP 读取你指定范围内的邮件，导入前会自动脱敏。</small>
+              <div className="communicationSourceFields">
+                <input
+                  type="email"
+                  value={emailAddress}
+                  onChange={(event) => setEmailAddress(event.target.value)}
+                  placeholder="邮箱地址"
+                  autoComplete="email"
+                />
+                <input
+                  type="password"
+                  value={emailPassword}
+                  onChange={(event) => setEmailPassword(event.target.value)}
+                  placeholder="IMAP 授权码"
+                  autoComplete="off"
+                />
+                <input value={emailHost} onChange={(event) => setEmailHost(event.target.value)} placeholder="IMAP 主机" />
+                <input
+                  type="number"
+                  min={1}
+                  max={65535}
+                  value={emailPort}
+                  onChange={(event) => setEmailPort(Number(event.target.value) || 993)}
+                  placeholder="端口"
+                />
+                <input
+                  className="wide"
+                  value={emailSubjectFilter}
+                  onChange={(event) => setEmailSubjectFilter(event.target.value)}
+                  placeholder="主题过滤，可留空"
+                />
+              </div>
+              <button type="button" className="ghostButton" disabled={emailBusy} onClick={() => void importEmailSource()}>
+                {emailBusy ? <RefreshCw size={15} className="spinIcon" /> : <Mail size={15} />}
+                导入邮箱来源
+              </button>
+              {emailImportSummary ? <small>{emailImportSummary}</small> : null}
+            </section>
+            <section className="communicationSourceCard">
+              <div className="communicationSourceHeader">
+                <MessagesSquare size={18} />
+                <strong>QQ 聊天记录</strong>
+              </div>
+              <small>支持 txt、html、csv、json 导出文件，导入后作为私有材料参与生成。</small>
+              <label className="qqSourcePicker">
+                <input
+                  type="file"
+                  multiple
+                  accept=".txt,.html,.htm,.csv,.json"
+                  onChange={(event) => setQqFiles(Array.from(event.target.files ?? []))}
+                />
+                <span>{qqFiles.length ? `${qqFiles.length} 个文件已选择` : "选择 QQ 聊天记录文件"}</span>
+              </label>
+              {qqFiles.length ? (
+                <small>{qqFiles.map((file) => file.name).join("、")}</small>
+              ) : null}
+              <button type="button" className="ghostButton" disabled={qqBusy} onClick={() => void importQqSource()}>
+                {qqBusy ? <RefreshCw size={15} className="spinIcon" /> : <MessagesSquare size={15} />}
+                导入 QQ 来源
+              </button>
+              {qqImportSummary ? <small>{qqImportSummary}</small> : null}
+            </section>
+          </div>
           <div className="uploadIntro">
             上传与分身相关的资料，例如简历、作品、文章、对话记录或截图。
           </div>
@@ -463,4 +604,8 @@ export function CreateUserPersonaDialog({ onClose, onCreated }: CreateUserPerson
       </section>
     </div>
   );
+}
+
+function importSummaryText(imported: number, redacted: number, skipped: number) {
+  return `解析完成 ${imported} 条，脱敏 ${redacted} 项，跳过 ${skipped} 条。`;
 }
