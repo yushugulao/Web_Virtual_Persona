@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, Plus, Search, Sparkles } from "lucide-react";
+import { ArrowRight, Plus, RefreshCw, Search, Sparkles } from "lucide-react";
 
 import {
+  fetchUserPersonaBuild,
   fetchMyUserPersonas,
   fetchPublicUserPersonas,
   publishUserPersona,
+  rebuildUserPersona,
+  startUserPersonaBuild,
   unpublishUserPersona
 } from "../api";
 import { personaRuntimeStatusLabel, shortPersonaDescription } from "../frontendText";
@@ -195,8 +198,12 @@ function UserPersonaDetailDialog({
   onUpdated: () => void;
 }) {
   const [busy, setBusy] = useState(false);
+  const [buildBusy, setBuildBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const card = cardFromUserPersonaDetail(persona);
+  const buildActionLabel =
+    persona.runtime_status === "error" || persona.runtime_status === "ready" ? "重新生成" : "生成分身";
+  const buildDisabled = buildBusy || busy || persona.runtime_status === "building";
 
   async function togglePublish() {
     setBusy(true);
@@ -212,6 +219,25 @@ function UserPersonaDetailDialog({
       setNotice(error instanceof Error ? error.message : "公开状态更新失败。");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function runBuild() {
+    setBuildBusy(true);
+    setNotice("");
+    try {
+      const started =
+        persona.runtime_status === "draft" ? await startUserPersonaBuild(persona.id) : await rebuildUserPersona(persona.id);
+      setNotice(`已开始生成：${started.phase || "整理资料"}。生成完成后即可公开和进入对话。`);
+      await onUpdated();
+      await pollBuildUntilSettled(persona.id, async (message) => {
+        setNotice(message);
+        await onUpdated();
+      });
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "启动生成失败。");
+    } finally {
+      setBuildBusy(false);
     }
   }
 
@@ -257,6 +283,16 @@ function UserPersonaDetailDialog({
         <div className="personaDetailActions">
           <button type="button" className="ghostButton" onClick={onClose}>
             关闭
+          </button>
+          <button
+            type="button"
+            className="ghostButton"
+            disabled={buildDisabled}
+            onClick={() => void runBuild()}
+            title={persona.runtime_status === "building" ? "正在生成，请稍候" : undefined}
+          >
+            {buildBusy || persona.runtime_status === "building" ? <RefreshCw size={15} className="spinIcon" /> : null}
+            {persona.runtime_status === "building" ? "正在生成" : buildActionLabel}
           </button>
           <button
             type="button"
@@ -339,7 +375,7 @@ export function PersonaPlatformGateway({
 
   function enterCard(card: PersonaCatalogCard) {
     if (card.runtime_status !== "ready") {
-      setNotice("这个分身还在构建中，暂时不能进入对话。");
+      setNotice(enterBlockedMessage(card.runtime_status));
       return;
     }
     onEnter(profileFromPersonaCard(card));
@@ -423,9 +459,12 @@ export function PersonaPlatformGateway({
             onClose={() => setDetailPersona(null)}
             onEnter={enterCard}
             onUpdated={async () => {
-              await mineQuery.refetch();
+              const refreshedMine = await mineQuery.refetch();
               await publicQuery.refetch();
-              setDetailPersona(null);
+              const updated = refreshedMine.data?.personas.find((item) => item.id === detailPersona.id);
+              if (updated) {
+                setDetailPersona(updated);
+              }
             }}
           />
         ) : null}
@@ -528,4 +567,36 @@ export function PersonaPlatformGateway({
       </section>
     </main>
   );
+}
+
+function enterBlockedMessage(status: PersonaCatalogCard["runtime_status"]) {
+  if (status === "draft") return "这个分身还是草稿，请先打开详情并生成分身。";
+  if (status === "building") return "这个分身正在生成，完成后才能进入对话。";
+  if (status === "error") return "这个分身上次生成失败，请先打开详情并重新生成。";
+  return "这个分身暂时不能进入对话。";
+}
+
+async function pollBuildUntilSettled(
+  personaId: string,
+  onTick: (message: string) => Promise<void>
+) {
+  const deadline = Date.now() + 180_000;
+  while (Date.now() < deadline) {
+    await wait(1800);
+    const build = await fetchUserPersonaBuild(personaId);
+    if (build.status === "succeeded") {
+      await onTick("生成完成，现在可以公开分身或进入对话。");
+      return;
+    }
+    if (build.status === "failed") {
+      await onTick(build.error ? `生成失败：${build.error}` : "生成失败，请检查资料和模型配置。");
+      return;
+    }
+    await onTick(`正在生成：${build.phase || "处理中"} ${Math.round(build.progress * 100)}%`);
+  }
+  await onTick("生成仍在继续，请稍后刷新查看状态。");
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
